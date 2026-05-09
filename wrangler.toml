@@ -10,7 +10,7 @@
 # Bố cục mỗi tab đại lý (sheet chính): A1 = tiêu đề tin; B1 = chat_id nhóm;
 # Hàng 2: A NGÀY | B MCC | C TỔNG TIÊU | D TIỀN TỆ | E QUY ĐỔI USD | F RATE | G TỔNG THU
 
-name = "bottinhtien"
+name = "blackcorp-bot"
 main = "src/index.ts"
 compatibility_date = "2025-05-10"
 
@@ -20,7 +20,7 @@ binding = "ASSETS"
 
 [[kv_namespaces]]
 binding = "STORE"
-id = "6f014a7ccca14e8a93cdadbacbbea994"
+id = "927d8f8c13b04cbaafa6a400299c1c3d"
 
 [vars]
 # Tài khoản admin mặc định (đổi được bằng biến này); mật khẩu chỉ qua secret PASSWORD
