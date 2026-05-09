@@ -19,7 +19,7 @@ directory = "./public"
 binding = "ASSETS"
 
 [[kv_namespaces]]
-binding = "blackcorp-bot"
+binding = "STORE"
 id = "6f014a7ccca14e8a93cdadbacbbea994"
 
 [vars]
