@@ -55,7 +55,7 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
       const gotPass = String(body.password ?? "");
       if (!env.PASSWORD) {
         return json(
-          { ok: false, error: "Chưa cấu hình mật khẩu (đặt secret PASSWORD trên Cloudflare)" },
+          { ok: false, error: "Chưa cấu hình mật khẩu" },
           503,
           request
         );
@@ -107,7 +107,7 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
           {
             ok: false,
             error:
-              "Worker chưa có KV binding STORE — không thể lưu. Vào Cloudflare → Worker → Settings → Variables/KV → Add binding → KV namespace tên STORE (hoặc cập nhật wrangler.toml và deploy).",
+              "Worker chưa có KV binding STORE — không thể lưu.",
           },
           503,
           request
@@ -149,7 +149,7 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
       }
 
       ctx.waitUntil(sendManualToAllChats(env, { ngay, mcc, maCamp, rate, ruleLines }));
-      return json({ ok: true, message: "Đang gửi tới các nhóm…" }, 202, request);
+      return json({ ok: true, message: "Sending..." }, 202, request);
     }
 
     return json({ ok: false, error: "Not found" }, 404, request);
