@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BLACK CORP®</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <h1 class="neon-title" id="brandNeon">BLACK CORP®</h1>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section id="gate" class="card gate" aria-live="polite">
+        <h2 id="loginHeading">Mời Vào</h2>
+        <form id="loginForm" class="stack">
+          <label class="field">
+            <span id="loginLabelUser">Admin</span>
+            <input
+              type="text"
+              name="username"
+              id="loginUsername"
+              value="Black7777"
+              autocomplete="username"
+              required
+              class="input rounded"
+            />
+          </label>
+          <label class="field">
+            <span id="loginLabelPass">Password</span>
+            <input
+              type="password"
+              name="password"
+              id="loginPassword"
+              autocomplete="current-password"
+              required
+              class="input rounded"
+            />
+          </label>
+          <button type="submit" class="btn primary" id="loginButton">Login</button>
+          <p id="loginMsg" class="msg" hidden></p>
+        </form>
+      </section>
+
+      <section id="app" class="hidden">
+        <div class="toolbar">
+          <button type="button" class="btn ghost" id="logoutButton">Log Out</button>
+        </div>
+
+        <section class="card">
+          <h2 id="dealerHeading">Đại lý &amp; Chat ID</h2>
+          <p class="hint dealer-hint" id="dealerHint">
+            Nhập tên DL và Chat ID tương ứng
+          </p>
+          <div id="dealerRows" class="dealer-rows"></div>
+          <div class="dealer-actions">
+            <button type="button" class="btn ghost" id="dealerAddRow">+</button>
+            <button type="button" class="btn primary" id="dealerSave">Save</button>
+          </div>
+          <p id="dealerMsg" class="msg" hidden></p>
+        </section>
+
+        <section class="card">
+          <h2 id="formHeading">Send Broadcast</h2>
+          <form id="sendForm" class="stack">
+            <label class="field">
+              <span id="lblNgay">Ngày</span>
+              <input type="text" name="ngay" class="input rounded" required />
+            </label>
+            <label class="field">
+              <span id="lblMcc">MCC</span>
+              <input type="text" name="mcc" class="input rounded" required />
+            </label>
+            <label class="field">
+              <span id="lblCamp">Mã camp</span>
+              <input type="text" name="maCamp" class="input rounded" required />
+            </label>
+            <label class="field">
+              <span id="lblRate">Rate</span>
+              <input type="text" name="rate" class="input rounded" required />
+            </label>
+            <label class="field">
+              <span id="lblRule">Rule</span>
+              <textarea name="rule" rows="6" class="input rounded textarea"></textarea>
+            </label>
+            <button type="submit" class="btn primary" id="submitButton">Send</button>
+            <p id="sendMsg" class="msg" hidden></p>
+          </form>
+        </section>
+
+        <p class="hint" id="footerNote">
+          Bot siêu cấp vip pro Blackcorp_bot
+        </p>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,36 @@
+# Triển khai:
+# 1) npm i && npx wrangler kv namespace create STORE → chép id vào [[kv_namespaces]].id
+# 2) Chia sẻ Google Sheet chính cho sheetbot@blacksheet.iam.gserviceaccount.com (Quyền đọc)
+# 3) wrangler secret put TELEGRAM_BOT_TOKEN / GOOGLE_SERVICE_ACCOUNT_JSON / SESSION_SECRET / PASSWORD
+#    Mật khẩu admin chỉ qua secret PASSWORD (Dashboard Cloudflare hoặc wrangler secret put)
+#    GOOGLE_SERVICE_ACCOUNT_JSON = toàn bộ nội dung file JSON (một dòng hoặc newline trong secret)
+# 4) Cập nhật PAYMENT_IMAGE_URL_1/2 (URL ảnh QR công khai HTTPS)
+# 5) npm run deploy
+#
+# Bố cục mỗi tab đại lý (sheet chính): A1 = tiêu đề tin; B1 = chat_id nhóm;
+# Hàng 2: A NGÀY | B MCC | C TỔNG TIÊU | D TIỀN TỆ | E QUY ĐỔI USD | F RATE | G TỔNG THU
+
+name = "bottinhtien"
+main = "src/index.ts"
+compatibility_date = "2025-05-10"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[kv_namespaces]]
+binding = "blackcorp-bot"
+id = "6f014a7ccca14e8a93cdadbacbbea994"
+
+[vars]
+# Tài khoản admin mặc định (đổi được bằng biến này); mật khẩu chỉ qua secret PASSWORD
+ADMIN_USERNAME = "Black7777"
+# ID bảng chính (tab = tên đại lý, A1=tiêu đề, B1=chat_id, hàng 2 = dữ liệu)
+MAIN_SPREADSHEET_ID = "1nATFl9dlTfsYgoHiqoG0j-kpJu2aRim7wMwm2BEQlsI"
+# Tab CONG_NO trên cùng sheet chính (cột A = tên đại lý/trùng tên tab, B = nợ) — không dùng sheet khác
+DEBT_TAB_NAME = "CONG_NO"
+PAYMENT_IMAGE_URL_1 = "https://cdn.jsdelivr.net/gh/lamlucas/blackcorp_bot@main/BEP20.jpg"
+PAYMENT_IMAGE_URL_2 = "https://cdn.jsdelivr.net/gh/lamlucas/blackcorp_bot@main/TRC20.jpg"
+
+[triggers]
+crons = ["*/2 * * * *"]
