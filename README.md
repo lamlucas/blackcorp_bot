@@ -48,6 +48,14 @@ Mac dinh ban dau: sua file `src/chat-groups.json`:
 - Mau co san tai `google-service-account.example.json`.
 - Lay noi dung file JSON that, thu gon ve 1 dong de gan vao `GOOGLE_SERVICE_ACCOUNT_JSON`.
 
+## 2.2) Sheet CÔNG NỢ (`CONG_NO`)
+
+- File spreadsheet: `1JbUXSQ3yvy48ofmyedzp1yZTtK0k2-FJeOQFM0dnL98` — chia sẻ cho cùng service account như sheet chính.
+- Tab tên đúng **`CONG_NO`**: cột **A** = tên tab (trùng `MÃ ĐL` / tên tab sheet chính), cột **B** = công nợ cũ; cột **C**, **D** (tùy chọn) = URL ảnh mã thanh toán (`https://...`).
+- Biến `GOOGLE_CONG_NO_SHEET_ID`: có thể bỏ trống để dùng ID mặc định trên.
+- Nếu không có URL ở C/D: dùng `TELEGRAM_PAYMENT_PHOTO_URL_1` và `TELEGRAM_PAYMENT_PHOTO_URL_2` (HTTPS, file ảnh công khai).
+- Sau mỗi tin đồng bộ: bot **ghim** tin nhắn nội dung và gửi **2 ảnh** trả lời tin đó. Bot cần quyền **Pin messages** trong nhóm.
+
 ## 3) Tao KV namespace (de luu dong da gui)
 
 Neu deploy bi loi `KV namespace ... is not valid` / code **10042**: ban chua thay `PUT_YOUR_KV_NAMESPACE_ID_HERE` trong `wrangler.toml` bang ID that.
