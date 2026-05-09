@@ -1,0 +1,13 @@
+{
+  "name": "telegram-sheet-broadcast-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.17.0"
+  }
+}
