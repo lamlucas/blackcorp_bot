@@ -1,0 +1,30 @@
+{
+  "pageTitle": "BLACK CORP®",
+  "brandNeon": "BLACK CORP®",
+  "loginHeading": "Mời Vào",
+  "loginLabelUser": "Admin",
+  "loginLabelPass": "Password",
+  "loginPlaceholderUser": "Black7777",
+  "loginButton": "Login",
+  "logoutButton": "Log Out",
+  "dealerHeading": "Đại lý & Chat ID",
+  "dealerHint": "Nhập tên ĐL và Chat ID tương ứng",
+  "dealerAddRow": "+",
+  "dealerSave": "Save",
+  "dealerRemove": "Delete",
+  "sheetPayHeading": "Send Thanh Toán",
+  "sheetPayHint": "Điền xong hàng 2 trên mọi tab đại lý trong Google Sheet, sau đó ấn nút — bot gửi tin + QR + ghi cột H (không tự gửi theo giờ).",
+  "sheetPayButton": "Send Thanh Toán",
+  "formHeading": "Send Broadcast",
+  "labels": {
+    "ngay": "Ngày",
+    "mcc": "MCC",
+    "maCamp": "Mã camp",
+    "rate": "Rate",
+    "rule": "Rule",
+    "dealerName": "Tên đại lý (trùng tên tab Sheet)",
+    "dealerChat": "Chat ID nhóm Telegram"
+  },
+  "submitButton": "Send",
+  "footerNote": "Bot siêu cấp vip pro Blackcorp_bot"
+}
