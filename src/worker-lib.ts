@@ -1,0 +1,178 @@
+import {
+  parseServiceAccountJson,
+  getSheetsAccessToken,
+  sheetsGet,
+  sheetsPutValues,
+  type SheetGrid,
+  type BatchGetResponse,
+} from "./google";
+
+export interface Env {
+  ASSETS: Fetcher;
+  /** KV bắt buộc để Lưu đại lý + cron không trùng tin — khai báo trong Dashboard hoặc wrangler.toml */
+  STORE?: KVNamespace;
+  TELEGRAM_BOT_TOKEN: string;
+  GOOGLE_SERVICE_ACCOUNT_JSON: string;
+  SESSION_SECRET: string;
+  /** Chỉ đặt qua Cloudflare secret / .dev.vars — không để trong [vars] */
+  PASSWORD?: string;
+  /** Mặc định Black7777 nếu không khai báo */
+  ADMIN_USERNAME?: string;
+  MAIN_SPREADSHEET_ID: string;
+  /**
+   * ID Sheet chứa công nợ (nếu không khai báo sẽ dùng MAIN_SPREADSHEET_ID để tương thích cũ).
+   * Tab DEBT_TAB_NAME (vd CONG_NO): cột A khớp tên tab đại lý trên MAIN_SPREADSHEET_ID; cột B = nợ.
+   * Chat ID nhóm: ô B1 của tab đại lý đó trên Sheet chính, hoặc map KV (resolveChatId).
+   */
+  DEBT_SPREADSHEET_ID?: string;
+  DEBT_TAB_NAME: string;
+  PAYMENT_IMAGE_URL_1: string;
+  PAYMENT_IMAGE_URL_2: string;
+  /** "0" / "false" — không chạy cron gửi công nợ */
+  DEBT_CRON_ENABLED?: string;
+  /** Số nhóm gửi liền nhau trước khi nghỉ (cron); mặc định 6 */
+  DEBT_CRON_BATCH_SIZE?: string;
+  /** Millisecond nghỉ giữa các lô (cron); mặc định 4000 */
+  DEBT_CRON_BATCH_PAUSE_MS?: string;
+  /**
+   * Producer Cloudflare Queues (gửi công nợ). Có binding → cron/API chỉ enqueue; consumer gửi Telegram theo lô.
+   * Không có → fallback gửi ngay trong Worker (DEV hoặc chưa tạo queue).
+   */
+  DEBT_NOTIFY_QUEUE?: Queue<{ chatId: string; maDl: string; noCuDisplay: string; runId: string }>;
+  /** JSON mặc định tính tiền đại lý — `wrangler secret put KET_QUA_DEFAULTS_JSON` (GET /api/ket-qua-defaults-json) */
+  KET_QUA_DEFAULTS_JSON?: string;
+}
+
+export async function getAccessTokenFromEnv(env: Env): Promise<string> {
+  const sa = parseServiceAccountJson(env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  return getSheetsAccessToken(sa);
+}
+
+function quoteSheet(title: string): string {
+  const escaped = title.replace(/'/g, "''");
+  return `'${escaped}'`;
+}
+
+/** Ghi ô H2 = TỔNG THU (THỰC THU cột G + công nợ). Cần quyền Editor cho service account. */
+export async function writeCellH2(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetTitle: string,
+  value: string
+): Promise<void> {
+  const q = quoteSheet(sheetTitle);
+  await sheetsPutValues(accessToken, spreadsheetId, `${q}!H2`, [[value]]);
+}
+
+export async function getSheetTitles(accessToken: string, spreadsheetId: string): Promise<string[]> {
+  const grid = await sheetsGet<SheetGrid>(
+    accessToken,
+    `${spreadsheetId}?fields=sheets(properties(title,sheetType))`
+  );
+  const titles: string[] = [];
+  for (const s of grid.sheets ?? []) {
+    const t = s.properties?.title;
+    if (t) titles.push(t);
+  }
+  return titles;
+}
+
+export async function batchGetValues(
+  accessToken: string,
+  spreadsheetId: string,
+  ranges: string[]
+): Promise<string[][][]> {
+  const params = new URLSearchParams();
+  for (const r of ranges) params.append("ranges", r);
+  params.set("majorDimension", "ROWS");
+  const path = `${spreadsheetId}/values:batchGet?${params.toString()}`;
+  const data = await sheetsGet<BatchGetResponse>(accessToken, path);
+  const out: string[][][] = [];
+  for (const vr of data.valueRanges ?? []) {
+    out.push(vr.values ?? []);
+  }
+  return out;
+}
+
+const PAYMENT_TAB_MAX_ROW = 200;
+
+function padRowAtoH(raw: unknown[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < 8; i++) out.push(String(raw[i] ?? ""));
+  return out;
+}
+
+/** Dừng tại dòng đầu tiên mà A–G đều trống (giữ block dữ liệu liên tục từ dòng 2). */
+function slicePaymentDataRows(rawRows: unknown[][]): string[][] {
+  const dataRows: string[][] = [];
+  for (const raw of rawRows) {
+    const row = padRowAtoH(raw);
+    const ag = row.slice(0, 7).map((c) => c.trim());
+    if (ag.every((c) => !c)) break;
+    dataRows.push(row);
+  }
+  return dataRows;
+}
+
+/**
+ * Đọc B1 (chat), các dòng dữ liệu A2:H… cho tới dòng trống A–G.
+ * `row2` = dòng đầu (tương thích mã cũ); `dataRows` = mọi dòng gửi chi phí.
+ */
+export async function readTabRows(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetTitle: string
+): Promise<{ chatId: string | null; a1: string; row2: string[]; dataRows: string[][] }> {
+  const q = quoteSheet(sheetTitle);
+  const lastRow = PAYMENT_TAB_MAX_ROW + 1;
+  const ranges = [`${q}!A1:B1`, `${q}!A2:H${lastRow}`];
+  const parts = await batchGetValues(accessToken, spreadsheetId, ranges);
+  const header = parts[0]?.[0] ?? [];
+  const rawRows = parts[1] ?? [];
+  const a1 = String(header[0] ?? "").trim();
+  const b1 = String(header[1] ?? "").trim();
+  const chatId = b1 ? b1 : null;
+  const dataRows = slicePaymentDataRows(rawRows);
+  const empty8 = ["", "", "", "", "", "", "", ""];
+  const row2 = dataRows[0] ? [...dataRows[0]] : [...empty8];
+  return { chatId, a1, row2, dataRows };
+}
+
+/** Hàng 2 trở đi cột A-B: tên đại lý (khớp tên tab) → nợ */
+export async function getDebtMap(
+  accessToken: string,
+  spreadsheetId: string,
+  tabName: string
+): Promise<Map<string, string>> {
+  const q = quoteSheet(tabName);
+  const ranges = [`${q}!A2:B`];
+  const parts = await batchGetValues(accessToken, spreadsheetId, ranges);
+  const rows = parts[0] ?? [];
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    const name = String(row[0] ?? "").trim();
+    const debt = String(row[1] ?? "").trim();
+    if (name) map.set(name, debt);
+  }
+  return map;
+}
+
+/** Mọi dòng A2:B (không gộp trùng cột A); chỉ lấy dòng có MÃ ĐL và nợ sau trim. */
+export async function getDebtRowsOrdered(
+  accessToken: string,
+  spreadsheetId: string,
+  tabName: string
+): Promise<{ maDl: string; noCuDisplay: string }[]> {
+  const q = quoteSheet(tabName);
+  const ranges = [`${q}!A2:B`];
+  const parts = await batchGetValues(accessToken, spreadsheetId, ranges);
+  const rows = parts[0] ?? [];
+  const out: { maDl: string; noCuDisplay: string }[] = [];
+  for (const row of rows) {
+    const maDl = String(row[0] ?? "").trim();
+    const noCu = String(row[1] ?? "").trim();
+    if (!maDl || !noCu) continue;
+    out.push({ maDl, noCuDisplay: noCu });
+  }
+  return out;
+}
