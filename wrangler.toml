@@ -1,0 +1,22 @@
+# Cloudflare Pages — đặt Secrets trên Dashboard hoặc: wrangler pages secret put ...
+name = "black-corp-sheets"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "public"
+
+# MAIN (1Iik…): TONG_QUAN, THU_CHI, COC (A–E). CONG_NO đọc/ghi bot từ file DEBT_SALES (19ON…).
+# SPREADSHEET_ID_BAN_DAO: file tab BAN_DAO (báo cáo bán dao). BAO_CAO_TK nằm trên DEBT_SALES (bot nhóm -1003992397667).
+
+[vars]
+SPREADSHEET_ID_MAIN = "1IikVlW74zW54b6b7n1a0ko0MxIQsr_qMH6IR9XNtXpE"
+SPREADSHEET_ID_DEBT_SALES = "19ONokW6FyUFTX2RmIoGDJn8JmDeWlDsmT7AV_MN_SJM"
+SPREADSHEET_ID_BAN_DAO = "1VK8O24vkBy7gb2CThC4oeyUeafv-ybfXp_axRAbPBmI"
+ADMIN_USERNAME = "Black7777"
+
+# Tạo file .dev.vars (không commit) cho local:
+# ADMIN_PASSWORD=...
+# SESSION_SECRET=chuỗi-ngẫu-nhiên-dài
+# GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+# TELEGRAM_BOT_TOKEN=...
+# TELEGRAM_WEBHOOK_SECRET=... (tuỳ chọn; khớp khi gọi setWebhook)
+# TELEGRAM_BAN_DAO_CHAT_ID=-5091396609
+# TELEGRAM_BAO_CAO_CHAT_ID=-1003992397667
