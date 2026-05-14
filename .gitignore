@@ -1,8 +1,0 @@
-node_modules/
-.wrangler/
-.dev.vars
-dist/
-*.log
-.DS_Store
-blacksheet-*.json
-*-service-account*.json
