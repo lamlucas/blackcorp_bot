@@ -9,7 +9,7 @@
 # 3) wrangler secret put TELEGRAM_BOT_TOKEN / GOOGLE_SERVICE_ACCOUNT_JSON / SESSION_SECRET / PASSWORD
 #    Mật khẩu admin chỉ qua secret PASSWORD (Dashboard Cloudflare hoặc wrangler secret put)
 #    GOOGLE_SERVICE_ACCOUNT_JSON = toàn bộ nội dung file JSON (một dòng hoặc newline trong secret)
-# 4) PAYMENT_IMAGE_URL_1: set trên Cloudflare Dashboard/secret (không để trong [vars] để deploy không ghi đè)
+# 4) Cập nhật PAYMENT_IMAGE_URL_1 (URL ảnh QR công khai HTTPS, một ảnh)
 # 5) Queue (khuyến nghị — tránh Worker chạy quá lâu):
 #    wrangler queues create blackcorp-debt-notify
 #    Deploy xong kiểm tra Worker → Triggers → có consumer queue.
@@ -74,6 +74,7 @@ THU_CHI_SPREADSHEET_ID = "1IikVlW74zW54b6b7n1a0ko0MxIQsr_qMH6IR9XNtXpE"
 TELEGRAM_THU_CHI_CHAT_ID = "-1003727898214"
 # "0" = không poll getUpdates (dùng webhook). "1" hoặc bỏ = bật poll (cần cron */2 hoặc gọi tay).
 TELEGRAM_POLL_ENABLED = "0"
+PAYMENT_IMAGE_URL_1 = "https://cdn.jsdelivr.net/gh/lamlucas/blackcorp_bot@main/qr1.jpg"
 # Cron gửi công nợ tự động (đặt "0" để tắt)
 DEBT_CRON_ENABLED = "1"
 DEBT_CRON_BATCH_SIZE = "6"
