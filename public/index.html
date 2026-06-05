@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BLACK CORP®</title>
+    <link rel="icon" href="./logo.ico" type="image/x-icon" />
+    <link rel="apple-touch-icon" href="./logo.ico" />
+    <link rel="stylesheet" href="./styles.css?v=12" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-spacer" aria-hidden="true"></div>
+        <h1 class="neon-title" id="brandNeon">BLACK CORP®</h1>
+        <div class="topbar-actions" id="topbarActions" hidden>
+          <div class="nav-dropdown" id="navDropdown">
+            <button
+              type="button"
+              class="nav-menu-toggle"
+              id="navMenuToggle"
+              aria-expanded="false"
+              aria-controls="navDrawer"
+              aria-haspopup="true"
+              aria-label="Mở menu"
+            >
+              <span class="nav-menu-bars" aria-hidden="true"></span>
+            </button>
+            <div id="navDrawer" class="nav-dropdown-panel" hidden role="menu" aria-label="Menu">
+              <div class="nav-dropdown-section nav-dropdown-actions">
+                <button type="button" class="nav-menu-item" id="navRefreshBtn" role="menuitem">Làm mới</button>
+                <button type="button" class="nav-menu-item" id="clearCacheBtn" role="menuitem">Xóa cache</button>
+                <button type="button" class="nav-menu-item nav-menu-item-danger" id="logoutButton" role="menuitem">
+                  Log Out
+                </button>
+              </div>
+              <div class="nav-dropdown-divider" role="separator"></div>
+              <div class="nav-dropdown-section nav-dropdown-tabs">
+                <button type="button" class="nav-menu-item nav-drawer-item active" data-tab="dealers" id="tabDealers" role="menuitem">
+                  Đại lý &amp; Chat ID
+                </button>
+                <button type="button" class="nav-menu-item nav-drawer-item" data-tab="chat-filter" id="tabChatFilter" role="menuitem">
+                  Lọc Chat ID
+                </button>
+                <button type="button" class="nav-menu-item nav-drawer-item" data-tab="sheet-pay" id="tabSheetPay" role="menuitem">
+                  Gửi chi phí
+                </button>
+                <button type="button" class="nav-menu-item nav-drawer-item" data-tab="coc" id="tabCoc" role="menuitem">Tiền cọc</button>
+                <button type="button" class="nav-menu-item nav-drawer-item" data-tab="debt-notify" id="tabDebtNotify" role="menuitem">
+                  Công nợ
+                </button>
+                <button type="button" class="nav-menu-item nav-drawer-item" data-tab="ket-qua" id="tabKetQua" role="menuitem">
+                  Tính tiền đại lý
+                </button>
+                <button type="button" class="nav-menu-item nav-drawer-item" data-tab="ket-qua-files" id="tabKetQuaFiles" role="menuitem">
+                  Tính Tiền TK Back
+                </button>
+                <button type="button" class="nav-menu-item nav-drawer-item" data-tab="broadcast" id="tabBroadcast" role="menuitem">
+                  Gửi tin nhắn hàng loạt
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section id="gate" class="card gate" aria-live="polite">
+        <h2 id="loginHeading">Welcome to BLACK CORP®</h2>
+        <form id="loginForm" class="stack stack-loose">
+          <label class="field">
+            <span id="loginLabelUser">Admin</span>
+            <input
+              type="text"
+              name="username"
+              id="loginUsername"
+              value="Black7777"
+              autocomplete="username"
+              required
+              class="input rounded"
+            />
+          </label>
+          <label class="field">
+            <span id="loginLabelPass">Password</span>
+            <input
+              type="password"
+              name="password"
+              id="loginPassword"
+              autocomplete="current-password"
+              required
+              class="input rounded"
+            />
+          </label>
+          <div class="actions-centered">
+            <button type="submit" class="btn primary" id="loginButton">Login</button>
+          </div>
+          <p id="loginMsg" class="msg" hidden></p>
+        </form>
+      </section>
+
+      <section id="app" class="hidden">
+        <!-- Tab 1: Đại lý -->
+        <div class="tab-panel panel-zoom panel-zoom-active" id="panel-dealers" data-panel="dealers" role="tabpanel">
+          <section class="card section-panel">
+            <header class="panel-head">
+              <h2 id="dealerHeading">Đại lý &amp; Chat ID</h2>
+              <p class="hint panel-intro" id="dealerHint">
+                Nhập <b>tên đại lý</b> trùng <b>cột D (tên khách)</b> trên tab BAO_CAO_TK, và <b>Chat ID</b> nhóm Telegram nhận tin cho khách đó.
+              </p>
+            </header>
+            <div class="panel-block dealer-compose-block">
+              <div class="dealer-row dealer-row-compose" id="dealerComposeRow">
+                <label class="field">
+                  <span class="dealer-lbl-name"></span>
+                  <input type="text" class="input rounded inp-name" id="dealerComposeName" autocomplete="off" />
+                </label>
+                <label class="field">
+                  <span class="dealer-lbl-chat"></span>
+                  <input type="text" class="input rounded inp-chat" id="dealerComposeChat" autocomplete="off" />
+                </label>
+                <div class="dealer-compose-actions">
+                  <button type="button" class="btn ghost" id="dealerAddRow">+</button>
+                  <button type="button" class="btn primary" id="dealerSave">Save</button>
+                </div>
+              </div>
+            </div>
+            <div class="panel-block">
+              <div id="dealerRows" class="dealer-rows"></div>
+            </div>
+            <p id="dealerMsg" class="msg panel-msg" hidden></p>
+          </section>
+        </div>
+
+        <!-- Tab 2: Lọc Chat ID -->
+        <div class="tab-panel panel-zoom" id="panel-chat-filter" data-panel="chat-filter" role="tabpanel" hidden>
+          <section class="card section-panel">
+            <header class="panel-head">
+              <h2 id="chatFilterHeading">Lọc Chat ID</h2>
+              <p class="hint panel-intro chat-id-fetch-hint" id="dealerFetchHint">
+                Chỉ bot Thu Chi bật webhook. Bot Báo cáo không webhook — dùng để quét Chat ID (getUpdates).
+                Thêm cả hai bot vào nhóm, gửi một tin trong nhóm, rồi bấm nút bên dưới.
+              </p>
+            </header>
+            <div class="panel-block panel-actions-centered">
+              <button type="button" class="btn primary" id="dealerFetchGroupChats">Lấy Chat ID nhóm</button>
+            </div>
+            <div id="dealerChatResults" class="dealer-chat-results hidden">
+              <label class="field">
+                <span id="lblDealerChatFilter">Lọc theo tên nhóm hoặc Chat ID</span>
+                <input
+                  type="search"
+                  id="dealerChatFilter"
+                  class="input rounded"
+                  autocomplete="off"
+                  placeholder="Gõ để lọc…"
+                />
+              </label>
+              <div class="chat-table-toolbar-centered">
+                <button type="button" class="btn ghost btn-sm" id="dealerDownloadCsv">Tải CSV (đã lọc)</button>
+                <button type="button" class="btn ghost btn-sm" id="dealerDownloadTxt">Tải TXT (đã lọc)</button>
+              </div>
+              <div class="chat-table-wrap">
+                <table class="chat-table" id="dealerChatTable">
+                  <thead>
+                    <tr>
+                      <th id="thChatTitle">Tên nhóm Telegram</th>
+                      <th id="thChatUser">@username</th>
+                      <th id="thChatId">Chat ID</th>
+                      <th id="thChatAct">Thêm vào form</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dealerChatTableBody"></tbody>
+                </table>
+              </div>
+              <p class="hint chat-table-foot" id="dealerChatTableFoot">
+                Bấm « Lấy Chat ID nhóm » để nạp danh sách. « Tên đại lý » trên form phải trùng tên tab Sheet — có thể sửa sau khi Thêm.
+              </p>
+            </div>
+            <p id="chatFilterMsg" class="msg panel-msg" hidden></p>
+          </section>
+        </div>
+
+        <!-- Tab: Gửi chi phí -->
+        <div class="tab-panel panel-zoom" id="panel-sheet-pay" data-panel="sheet-pay" role="tabpanel" hidden>
+          <section class="card section-panel broadcast-block">
+            <header class="panel-head">
+              <h2 id="sheetPayHeading">Gửi chi phí</h2>
+              <p class="hint panel-intro" id="sheetPayHint">
+                <b>NGÀY + MCC</b> (mỗi dòng một giá trị) — lọc tab <b>BAO_CAO_TK</b>: cột <b>A</b> = ngày, cột <b>B</b> = MCC (MCC trống trên cùng dòng = chỉ lọc ngày). Sau gửi, bot ghi cột <b>J (NOTE)</b>: Done / Error.
+              </p>
+            </header>
+            <div class="panel-block">
+              <span class="broadcast-tabs-legend" id="lblSheetPayLink">NGÀY + MCC (cột A &amp; B)</span>
+              <p class="hint" id="sheetPayLinkSlotHint">
+                VD: dòng 1 = 31/05/2026, dòng 2 = 01/06/2026; MCC mỗi dòng khớp cột B. « MCC loại trừ »: khớp ngày + MCC thì bỏ qua, không gửi nhóm.
+              </p>
+              <div id="sheetPayLinkRows" class="stack sheet-pay-multiline">
+                <label class="field"
+                  ><span class="sheet-pay-link-lbl" id="lblSheetPayDates">NGÀY (mỗi dòng một ngày)</span
+                  ><textarea
+                    id="sheetPayDates"
+                    class="input rounded textarea sheet-pay-lines"
+                    rows="4"
+                    autocomplete="off"
+                    placeholder="31/05/2026&#10;01/06/2026"
+                  ></textarea
+                ></label>
+                <label class="field"
+                  ><span class="sheet-pay-link-lbl" id="lblSheetPayMccs">MCC (mỗi dòng một MCC)</span
+                  ><textarea
+                    id="sheetPayMccs"
+                    class="input rounded textarea sheet-pay-lines"
+                    rows="4"
+                    autocomplete="off"
+                    placeholder="436-884-6291&#10;436-884-6292"
+                  ></textarea
+                ></label>
+                <label class="field"
+                  ><span class="sheet-pay-link-lbl" id="lblSheetPayExclude">MCC loại trừ</span
+                  ><textarea
+                    id="sheetPayExcludeMccs"
+                    class="input rounded textarea sheet-pay-lines"
+                    rows="3"
+                    autocomplete="off"
+                    placeholder="MCC khớp ngày + cột B sẽ không gửi"
+                  ></textarea
+                ></label>
+              </div>
+            </div>
+            <div class="panel-block panel-actions-centered">
+              <button type="button" class="btn primary wide" id="sendSheetPayment">Gửi</button>
+            </div>
+            <p id="sheetPayMsg" class="msg panel-msg" hidden></p>
+          </section>
+        </div>
+
+        <!-- Tab: Tiền cọc -->
+        <div class="tab-panel panel-zoom" id="panel-coc" data-panel="coc" role="tabpanel" hidden>
+          <section class="card section-panel">
+            <header class="panel-head">
+              <h2 id="cocHeading">Tiền cọc</h2>
+              <p class="hint panel-intro" id="cocHint">
+                Đọc/ghi tab <b>COC</b> (A Ngày, B Thu, C Chi, D Tên, E Ghi chú). Bot reply ảnh vẫn ghi tab
+                <b>THU_CHI</b> riêng.
+              </p>
+            </header>
+            <div class="panel-block coc-toolbar">
+              <button type="button" class="btn ghost btn-sm" id="cocRefresh">Làm mới</button>
+              <button type="button" class="btn primary btn-sm" id="cocSave">Lưu Sheet</button>
+              <button type="button" class="btn ghost btn-sm" id="cocAddRow">+ Dòng</button>
+            </div>
+            <div class="chat-table-wrap">
+              <table class="chat-table data-table-editable" id="cocTable">
+                <thead>
+                  <tr>
+                    <th id="thCocNgay">Ngày</th>
+                    <th id="thCocThu" class="th-num">Thu</th>
+                    <th id="thCocChi" class="th-num">Chi</th>
+                    <th id="thCocTen">Tên</th>
+                    <th id="thCocNote">Ghi chú</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="cocTableBody"></tbody>
+              </table>
+            </div>
+            <p id="cocMsg" class="msg panel-msg" hidden></p>
+          </section>
+        </div>
+
+        <!-- Tab: Công nợ -->
+        <div class="tab-panel panel-zoom" id="panel-debt-notify" data-panel="debt-notify" role="tabpanel" hidden>
+          <section class="card section-panel broadcast-block">
+            <header class="panel-head">
+              <h2 id="debtNotifyHeading">Thông báo công nợ</h2>
+              <p class="hint panel-intro" id="debtNotifyHint">
+                Đọc tab CONG_NO (A2:B) trên bảng công nợ — cột A khớp « Tên đại lý » trong tab Đại lý &amp; Chat ID; cột B = nợ. Cron 22:00 giờ Việt Nam.
+              </p>
+            </header>
+            <div class="panel-block cong-no-preview-block">
+              <div class="debt-status-toolbar">
+                <span class="broadcast-tabs-legend" id="congNoPreviewLegend">Bảng CONG_NO (đọc trực tiếp từ Sheet)</span>
+              </div>
+              <p class="hint" id="congNoPreviewMeta"></p>
+              <div class="chat-table-wrap">
+                <table class="chat-table" id="congNoPreviewTable">
+                  <thead>
+                    <tr>
+                      <th id="thCongNoColA">Cột A (TÊN / mã đại lý)</th>
+                      <th id="thCongNoColB">Cột B (NỢ)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="congNoPreviewBody"></tbody>
+                </table>
+              </div>
+              <p id="congNoPreviewMsg" class="hint panel-msg" hidden></p>
+            </div>
+            <div class="panel-block debt-status-section">
+              <div class="debt-status-toolbar">
+                <span class="broadcast-tabs-legend" id="debtNotifyStatusLegend">Trạng thái lần chạy gần nhất</span>
+                <button type="button" class="btn ghost btn-sm" id="debtNotifyRefresh">Làm mới</button>
+              </div>
+              <div id="debtNotifyStatusBox" class="debt-status-box" aria-live="polite">
+                <p id="debtNotifyStatusSummary" class="hint debt-status-summary"></p>
+                <ul id="debtNotifySentList" class="debt-sent-list"></ul>
+                <p id="debtNotifyErrors" class="msg debt-status-errors" hidden></p>
+              </div>
+              <p id="debtNotifyStatusFoot" class="hint debt-status-foot">
+                Chỉ gửi khi cột B có nợ và cột A khớp một dòng « Đại lý &amp; Chat ID » (có Chat ID).
+              </p>
+            </div>
+          </section>
+        </div>
+
+        <!-- Tab: Tính tiền đại lý — ghi đè tab KET_QUA (port Source/main.py) -->
+        <div class="tab-panel panel-zoom" id="panel-ket-qua" data-panel="ket-qua" role="tabpanel" hidden>
+          <section class="card section-panel broadcast-block">
+            <header class="panel-head">
+              <h2 id="ketQuaHeading">Tính tiền đại lý</h2>
+              <p class="hint panel-intro" id="ketQuaIntro">
+                Đọc mọi tab (trừ KET_QUA), tổng hợp theo cột chiến dịch / chi phí / tiền tệ và ghi đè tab KET_QUA.
+              </p>
+            </header>
+            <form id="ketQuaForm" class="stack stack-loose">
+              <label class="field">
+                <span id="ketQuaLblLink">Link Sheet</span>
+                <input
+                  type="text"
+                  id="ketQuaSpreadsheetUrl"
+                  class="input rounded"
+                  autocomplete="off"
+                  placeholder="https://docs.google.com/spreadsheets/d/.../edit"
+                  required
+                />
+              </label>
+              <div class="ket-qua-two-col">
+                <label class="field">
+                  <span id="ketQuaLblCampaignCol">Cột chiến dịch (A, B, AA…)</span>
+                  <input type="text" id="ketQuaCampaignCol" class="input rounded" value="B" maxlength="6" required />
+                </label>
+                <label class="field">
+                  <span id="ketQuaLblCostCol">Cột chi phí</span>
+                  <input type="text" id="ketQuaCostCol" class="input rounded" value="C" maxlength="6" required />
+                </label>
+              </div>
+              <label class="field">
+                <span id="ketQuaLblCurrencyCol">Cột đơn vị tiền tệ</span>
+                <input type="text" id="ketQuaCurrencyCol" class="input rounded" maxlength="6" autocomplete="off" required />
+              </label>
+              <label class="field">
+                <span id="ketQuaLblCap1">Mã cấp 1</span>
+                <input type="text" id="ketQuaCap1" class="input rounded" autocomplete="off" />
+              </label>
+              <label class="field">
+                <span id="ketQuaLblCap2">Mã cấp 2</span>
+                <input type="text" id="ketQuaCap2" class="input rounded" autocomplete="off" placeholder="Nhiều mã, phẩy" />
+              </label>
+              <div class="ket-qua-two-col">
+                <label class="field">
+                  <span id="ketQuaLblAccountNameCol">Cột tên tài khoản</span>
+                  <input type="text" id="ketQuaAccountNameCol" class="input rounded" maxlength="6" autocomplete="off" />
+                </label>
+                <label class="field">
+                  <span id="ketQuaLblAccountName">Tên tài khoản</span>
+                  <input type="text" id="ketQuaAccountName" class="input rounded" autocomplete="off" />
+                </label>
+              </div>
+              <div class="panel-block panel-actions-centered">
+                <button type="submit" class="btn primary wide" id="ketQuaRun">Chạy</button>
+              </div>
+              <p id="ketQuaMsg" class="msg panel-msg" hidden></p>
+            </form>
+          </section>
+        </div>
+
+        <!-- Tab: Tính Tiền TK Back -->
+        <div class="tab-panel panel-zoom" id="panel-ket-qua-files" data-panel="ket-qua-files" role="tabpanel" hidden>
+          <section class="card section-panel broadcast-block">
+            <header class="panel-head">
+              <h2 id="ketQuaFilesHeading">Tính Tiền TK Back</h2>
+              <p class="hint panel-intro" id="ketQuaFilesIntro">
+                Mỗi dòng một link Google Sheet (= một file). Bot so sánh cột tên tài khoản giữa các file, tính tiền theo mã đại lý (logic Tính tiền đại lý) cho tài khoản chỉ có ở một số file, nhóm theo tiền tệ.
+              </p>
+            </header>
+            <form id="ketQuaFilesForm" class="stack stack-loose">
+              <label class="field">
+                <span id="ketQuaFilesLblLinks">Link file (mỗi dòng một link Sheet)</span>
+                <textarea
+                  id="ketQuaFilesSpreadsheetLinks"
+                  class="input rounded textarea"
+                  rows="6"
+                  placeholder="https://docs.google.com/spreadsheets/d/.../edit&#10;https://docs.google.com/spreadsheets/d/.../edit"
+                  required
+                ></textarea>
+              </label>
+              <label class="field">
+                <span id="ketQuaFilesLblOutputLink">Link Sheet ghi kết quả (để trống = dòng link đầu)</span>
+                <input
+                  type="text"
+                  id="ketQuaFilesOutputUrl"
+                  class="input rounded"
+                  autocomplete="off"
+                  placeholder="https://docs.google.com/spreadsheets/d/.../edit"
+                />
+              </label>
+              <div class="ket-qua-two-col">
+                <label class="field">
+                  <span id="ketQuaFilesLblCampaignCol">Cột chiến dịch (A, B, AA…)</span>
+                  <input type="text" id="ketQuaFilesCampaignCol" class="input rounded" value="B" maxlength="6" required />
+                </label>
+                <label class="field">
+                  <span id="ketQuaFilesLblCostCol">Cột chi phí</span>
+                  <input type="text" id="ketQuaFilesCostCol" class="input rounded" value="C" maxlength="6" required />
+                </label>
+              </div>
+              <label class="field">
+                <span id="ketQuaFilesLblCurrencyCol">Cột đơn vị tiền tệ</span>
+                <input type="text" id="ketQuaFilesCurrencyCol" class="input rounded" maxlength="6" autocomplete="off" required />
+              </label>
+              <label class="field">
+                <span id="ketQuaFilesLblCap1">Mã cấp 1</span>
+                <input type="text" id="ketQuaFilesCap1" class="input rounded" autocomplete="off" />
+              </label>
+              <label class="field">
+                <span id="ketQuaFilesLblCap2">Mã cấp 2</span>
+                <input type="text" id="ketQuaFilesCap2" class="input rounded" autocomplete="off" placeholder="Nhiều mã, phẩy" />
+              </label>
+              <label class="field">
+                <span id="ketQuaFilesLblAccountNameCol">Cột tên tài khoản (bắt buộc)</span>
+                <input type="text" id="ketQuaFilesAccountNameCol" class="input rounded" maxlength="6" autocomplete="off" required />
+              </label>
+              <div class="panel-block panel-actions-centered">
+                <button type="submit" class="btn primary wide" id="ketQuaFilesRun">Chạy</button>
+              </div>
+              <p id="ketQuaFilesMsg" class="msg panel-msg" hidden></p>
+            </form>
+          </section>
+        </div>
+
+        <!-- Tab 4: Gửi tin nhắn hàng loạt -->
+        <div class="tab-panel panel-zoom" id="panel-broadcast" data-panel="broadcast" role="tabpanel" hidden>
+          <section class="card section-panel broadcast-block">
+            <header class="panel-head">
+              <h2 id="formHeading">Gửi tin báo tài khoản</h2>
+            </header>
+            <form id="sendForm" class="stack stack-loose">
+              <p class="hint panel-intro broadcast-form-intro" id="broadcastCampHint">
+                Mỗi nhóm nhận một tin theo định dạng NGÀY / MCC / MÃ CAMP / RATE / RULE. NGÀY tự điền theo giờ Việt Nam.
+              </p>
+              <p class="hint broadcast-ngay-auto" id="broadcastNgayAuto">
+                Ngày gửi: <strong id="broadcastNgayDisplay">—</strong>
+              </p>
+              <label class="field">
+                <span id="lblMcc">MCC</span>
+                <input type="text" name="mcc" class="input rounded" required />
+              </label>
+              <div class="field broadcast-tabs-field">
+                <span class="broadcast-tabs-legend" id="broadcastTabsLegend">Nhóm nhận tin nhắn</span>
+                <div class="broadcast-tab-toolbar">
+                  <button type="button" class="btn ghost btn-sm" id="broadcastSelectAll">Chọn tất cả</button>
+                  <button type="button" class="btn ghost btn-sm" id="broadcastSelectNone">Bỏ chọn</button>
+                </div>
+                <div id="broadcastTabChecks" class="broadcast-dealer-groups" aria-live="polite"></div>
+                <p id="broadcastTabsStatus" class="hint broadcast-tabs-status" hidden></p>
+              </div>
+              <label class="field">
+                <span id="lblCamp">Tiền tố MÃ CAMP (VD: BLA)</span>
+                <input
+                  type="text"
+                  name="maCampPrefix"
+                  id="maCampPrefixInput"
+                  class="input rounded"
+                  placeholder="VD: BLA"
+                  required
+                  autocomplete="off"
+                />
+              </label>
+              <label class="field">
+                <span id="lblRate">Rate</span>
+                <input type="text" name="rate" class="input rounded" required />
+              </label>
+              <label class="field">
+                <span id="lblRule">Rule</span>
+                <textarea name="rule" rows="6" class="input rounded textarea"></textarea>
+              </label>
+              <div class="actions-centered">
+                <button type="submit" class="btn primary" id="submitButton">Send</button>
+              </div>
+              <p id="sendMsg" class="msg" hidden></p>
+            </form>
+          </section>
+        </div>
+
+        <p class="hint app-footer" id="footerNote">BLACK CORP®</p>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js?v=19"></script>
+  </body>
+</html>
