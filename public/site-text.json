@@ -44,7 +44,7 @@
   "sheetPayExcludeLabel": "MCC loại trừ",
   "sheetPayButton": "Gửi",
   "cocHeading": "Tiền cọc",
-  "cocHint": "Đọc/ghi tab COC (Ngày, Thu, Chi, Tên, Note). Bot ghi COC khi Note là Thẳng / Tạ An / MMO (lệnh Thu/Chi nhiều dòng).",
+  "cocHint": "Đọc/ghi tab COC (Ngày, Thu, Chi, Tên, Note). Sửa / thêm / xóa từng dòng — Lưu chỉ ghi dòng thay đổi, không xóa hết tab. Bot ghi COC khi Note là Thẳng / Tạ An / MMO (lệnh Thu/Chi nhiều dòng).",
   "cocSave": "Lưu Sheet",
   "cocRefresh": "Làm mới",
   "debtNotifyHeading": "Thông báo công nợ",

@@ -514,9 +514,28 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
         deletedRows?: number[];
       };
       const { applyCocPanelChanges, COC_TAB_NAME } = await import("./coc-sheet");
-      const patches = Array.isArray(body.rows) ? body.rows : [];
+      const rawPatches = Array.isArray(body.rows) ? body.rows : [];
+      const patches = rawPatches.filter(
+        (r) => Number.isFinite(Number(r.sheetRow)) && Number(r.sheetRow) >= 2,
+      );
       const appends = Array.isArray(body.appends) ? body.appends : [];
       const deletedRows = Array.isArray(body.deletedRows) ? body.deletedRows : [];
+      if (
+        rawPatches.length > 0 &&
+        patches.length === 0 &&
+        appends.length === 0 &&
+        deletedRows.length === 0
+      ) {
+        return json(
+          {
+            ok: false,
+            error:
+              "Dữ liệu lưu thiếu số dòng Sheet — bấm « Làm mới » rồi sửa lại (panel cũ có thể ghi đè hết tab).",
+          },
+          400,
+          request,
+        );
+      }
       if (patches.length === 0 && appends.length === 0 && deletedRows.length === 0) {
         return json({ ok: false, error: "Không có thay đổi nào cần lưu." }, 400, request);
       }
