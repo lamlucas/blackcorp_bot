@@ -240,7 +240,7 @@ export function sumThucThuColumnIForCustomerD(
 
 /**
  * Tin tổng thanh toán (trước ảnh QR):
- * Nợ đầu ngày cột C + từng cột I (MCC) trong bộ lọc = tổng.
+ * Nợ đầu ngày cột C + từng cột I trong bộ lọc = tổng (chỉ số tiền, không ghi tên MCC).
  */
 export function formatTongTienCanThanhToanMessage(opt: {
   openingC: string;
@@ -252,10 +252,7 @@ export function formatTongTienCanThanhToanMessage(opt: {
     terms.push(boldValue(opt.openingC));
   }
   for (const line of opt.mccLines) {
-    const mccLabel = line.mcc.trim()
-      ? `${escapeHtmlTelegram("MCC ")}${boldValue(line.mcc.trim())}: `
-      : "";
-    terms.push(`${mccLabel}${boldValue(line.amount)}`);
+    terms.push(boldValue(line.amount));
   }
   if (terms.length === 0) {
     terms.push(boldValue("0"));
