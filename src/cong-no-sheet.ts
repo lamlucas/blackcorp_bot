@@ -190,8 +190,8 @@ export async function applyCongNoAfterThuPayment(
 }
 
 /**
- * Gửi chi phí — cộng dồn cột I (TỔNG THU) vào nợ cột B khi A khớp tên khách cột D.
- * Chỉ cập nhật nếu đã có dòng CONG_NO (cột A khớp).
+ * Gửi chi phí — cộng dồn cột I (TỔNG THU) vào nợ cột B.
+ * Chưa có dòng CONG_NO (cột A) → thêm dòng mới với tên cột D.
  */
 export async function accumulateCongNoDebtFromExpense(
   accessToken: string,
@@ -204,11 +204,13 @@ export async function accumulateCongNoDebtFromExpense(
     return { updated: false };
   }
 
-  const debtMap = await getDebtMap(accessToken, spreadsheetId, tabName);
-  const maDlKey = resolveCongNoMaDlKeyByCustomerName(debtMap, customerNameColD);
-  if (!maDlKey) return { updated: false };
+  const customerD = customerNameColD.trim();
+  if (!customerD) return { updated: false };
 
-  const bStr = getCongNoColumnBForCustomerD(debtMap, customerNameColD);
+  const debtMap = await getDebtMap(accessToken, spreadsheetId, tabName);
+  const maDlKey = resolveCongNoMaDlKeyByCustomerName(debtMap, customerD) ?? customerD;
+
+  const bStr = getCongNoColumnBForCustomerD(debtMap, customerD);
   const current = bStr != null ? parseMoneyNumber(bStr) : 0;
   const newTotal = Math.round((current + expenseAmount) * 100) / 100;
   const newDebtDisplay = formatMoneyForThanhToanLine(newTotal);

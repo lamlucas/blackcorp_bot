@@ -1,4 +1,4 @@
-import type { BaoCaoFilterSlot, BaoCaoTkFilteredRow } from "./bao-cao-tk";
+﻿import type { BaoCaoFilterSlot, BaoCaoTkFilteredRow } from "./bao-cao-tk";
 import {
   getDealerChatMap,
   resolveChatIdForCustomerNameColumnD,
@@ -54,7 +54,7 @@ export type SheetPayStartOpts = {
   workerOrigin: string;
 };
 
-/** Job trong Cloudflare Queue — mỗi message = 1 lô chi phí hoặc gửi footer. */
+/** Job trong Cloudflare Queue ΓÇö mß╗ùi message = 1 l├┤ chi ph├¡ hoß║╖c gß╗¡i footer. */
 export type SheetPayQueueJob =
   | { kind: "chunk"; runId: string; offset: number }
   | { kind: "footers"; runId: string };
@@ -102,12 +102,12 @@ async function sendPaymentQrPhoto(
     const photo = await sendPhotoUrl(env.TELEGRAM_BOT_TOKEN, chatId, qrUrl);
     await pinMessage(env.TELEGRAM_BOT_TOKEN, chatId, photo.message_id);
   } catch {
-    /* QR lỗi */
+    /* QR lß╗ùi */
   }
   await pause();
 }
 
-/** Chuẩn bị lô gửi → lưu KV → enqueue lô đầu (Queue) hoặc chạy inline. */
+/** Chuß║⌐n bß╗ï l├┤ gß╗¡i ΓåÆ l╞░u KV ΓåÆ enqueue l├┤ ─æß║ºu (Queue) hoß║╖c chß║íy inline. */
 export async function startSheetPayRun(env: Env, opts: SheetPayStartOpts): Promise<void> {
   const meta = await prepareSheetPayMeta(env, opts);
   if (!meta) return;
@@ -159,7 +159,7 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
   try {
     token = await getAccessTokenFromEnv(env);
   } catch {
-    await appendSheetPayRunError(env, opts.runId, "Không lấy được token Google Sheets.");
+    await appendSheetPayRunError(env, opts.runId, "Kh├┤ng lß║Ñy ─æ╞░ß╗úc token Google Sheets.");
     return null;
   }
 
@@ -179,7 +179,7 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
   try {
     allEntries = await readBaoCaoTkSheetRows(token, debtSpreadsheetId, BAO_CAO_TK_TAB_NAME);
   } catch {
-    await appendSheetPayRunError(env, opts.runId, "Không đọc được tab BAO_CAO_TK.");
+    await appendSheetPayRunError(env, opts.runId, "Kh├┤ng ─æß╗ìc ─æ╞░ß╗úc tab BAO_CAO_TK.");
     return null;
   }
 
@@ -306,7 +306,7 @@ async function scheduleNextChunk(env: Env, meta: SheetPayRunMeta, offset: number
         await appendSheetPayRunError(
           env,
           meta.runId,
-          `Không gọi tiếp lô gửi (HTTP ${res.status}) — thử bấm Gửi lại.`,
+          `Kh├┤ng gß╗ìi tiß║┐p l├┤ gß╗¡i (HTTP ${res.status}) ΓÇö thß╗¡ bß║Ñm Gß╗¡i lß║íi.`,
         );
         await finishSheetPayRun(env, meta.runId, { timedOut: true });
       }
@@ -316,7 +316,7 @@ async function scheduleNextChunk(env: Env, meta: SheetPayRunMeta, offset: number
         await appendSheetPayRunError(
           env,
           meta.runId,
-          `Lỗi gọi tiếp lô gửi: ${detail.slice(0, 200)}`,
+          `Lß╗ùi gß╗ìi tiß║┐p l├┤ gß╗¡i: ${detail.slice(0, 200)}`,
         );
         await finishSheetPayRun(env, meta.runId, { timedOut: true });
       }
@@ -353,7 +353,7 @@ async function loadChunkSheetCache(env: Env, meta: SheetPayRunMeta): Promise<Chu
 export async function processSheetPayFooters(env: Env, runId: string): Promise<void> {
   const meta = await loadSheetPayMeta(env, runId);
   if (!meta) {
-    await appendSheetPayRunError(env, runId, "Mất dữ liệu lô gửi (KV meta).");
+    await appendSheetPayRunError(env, runId, "Mß║Ñt dß╗» liß╗çu l├┤ gß╗¡i (KV meta).");
     await finishSheetPayRun(env, runId);
     return;
   }
@@ -366,7 +366,7 @@ export async function processSheetPayFooters(env: Env, runId: string): Promise<v
       await appendSheetPayRunError(
         env,
         runId,
-        `Tên khách: ${target.customerD} — footer lỗi: ${detail.slice(0, 160)}`,
+        `T├¬n kh├ích: ${target.customerD} ΓÇö footer lß╗ùi: ${detail.slice(0, 160)}`,
       );
     }
   }
@@ -381,12 +381,12 @@ export async function processSheetPayChunk(
 ): Promise<void> {
   const meta = await loadSheetPayMeta(env, runId);
   if (!meta) {
-    await appendSheetPayRunError(env, runId, "Mất dữ liệu lô gửi (KV meta).");
+    await appendSheetPayRunError(env, runId, "Mß║Ñt dß╗» liß╗çu l├┤ gß╗¡i (KV meta).");
     await finishSheetPayRun(env, runId);
     return;
   }
 
-  /** Nghỉ giữa các lô — đặt đầu lô (không chặn HTTP continue / queue message trước). */
+  /** Nghß╗ë giß╗»a c├íc l├┤ ΓÇö ─æß║╖t ─æß║ºu l├┤ (kh├┤ng chß║╖n HTTP continue / queue message tr╞░ß╗¢c). */
   if (offset > 0 && meta.batchPauseMs > 0 && !env.SHEET_PAY_QUEUE) {
     await new Promise<void>((r) => setTimeout(r, meta.batchPauseMs));
   }
@@ -407,7 +407,7 @@ export async function processSheetPayChunk(
       await appendSheetPayRunError(
         env,
         runId,
-        `Dòng ${job.sheetRow1Based} (${job.customerD}): ${detail.slice(0, 160)}`,
+        `D├▓ng ${job.sheetRow1Based} (${job.customerD}): ${detail.slice(0, 160)}`,
       );
     }
     await pauseShort();
@@ -534,12 +534,12 @@ async function deliverSheetPayRowJob(
   try {
     await pinMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg.message_id);
   } catch {
-    /* ghim lỗi */
+    /* ghim lß╗ùi */
   }
 
   if (tongThuNum > 0 && !meta.forceResend) {
     const { upsertCongNoDebt } = await import("./cong-no-sheet");
-    const maDlKey = resolveCongNoMaDlKeyByCustomerName(debtMap, customerD);
+    const maDlKey = resolveCongNoMaDlKeyByCustomerName(debtMap, customerD) ?? customerD.trim();
     if (maDlKey) {
       const current = bStr != null ? parseMoneyNumber(bStr) : 0;
       const newTotal = Math.round((current + tongThuNum) * 100) / 100;
@@ -602,7 +602,7 @@ async function deliverSheetPayFooter(
     bOldDisplay = bOldStart;
     total = Math.round((bOldStart + sumI) * 100) / 100;
     if (!congNoDebtMatchesTongTien(bOldStart, sumI, bCurrent)) {
-      await appendSheetPayRunError(env, meta.runId, `Tên khách: ${target.customerD} lệch chi tiêu`);
+      await appendSheetPayRunError(env, meta.runId, `T├¬n kh├ích: ${target.customerD} lß╗çch chi ti├¬u`);
       meta.footerSentKeys.push(footerRunKey);
       await saveSheetPayMeta(env, meta);
       return;
@@ -635,7 +635,7 @@ async function deliverSheetPayFooter(
     await appendSheetPayRunError(
       env,
       meta.runId,
-      `Tên khách: ${target.customerD} — gửi TỔNG TIỀN Telegram lỗi: ${detail.slice(0, 160)}`,
+      `T├¬n kh├ích: ${target.customerD} ΓÇö gß╗¡i Tß╗öNG TIß╗ÇN Telegram lß╗ùi: ${detail.slice(0, 160)}`,
     );
     meta.footerSentKeys.push(footerRunKey);
     await saveSheetPayMeta(env, meta);
@@ -649,7 +649,7 @@ async function deliverSheetPayFooter(
     await appendSheetPayRunWarning(
       env,
       meta.runId,
-      `Tên khách: ${target.customerD} — gửi QR lỗi (tin tổng đã gửi).`,
+      `T├¬n kh├ích: ${target.customerD} ΓÇö gß╗¡i QR lß╗ùi (tin tß╗òng ─æ├ú gß╗¡i).`,
     );
   }
 
