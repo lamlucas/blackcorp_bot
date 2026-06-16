@@ -54,10 +54,11 @@ export type SheetPayStartOpts = {
   workerOrigin: string;
 };
 
-/** Job trong Cloudflare Queue ΓÇö mß╗ùi message = 1 l├┤ chi ph├¡ hoß║╖c gß╗¡i footer. */
+/** Job trong Cloudflare Queue — mỗi message = 1 lô chi phí, footer, hoặc tin hàng loạt. */
 export type SheetPayQueueJob =
   | { kind: "chunk"; runId: string; offset: number }
-  | { kind: "footers"; runId: string };
+  | { kind: "footers"; runId: string }
+  | { kind: "manual-broadcast"; runId: string; offset: number };
 
 type ChunkSheetCache = {
   debtMap: Map<string, string>;
@@ -123,6 +124,11 @@ export async function startSheetPayRun(env: Env, opts: SheetPayStartOpts): Promi
 }
 
 export async function deliverSheetPayQueueJob(env: Env, job: SheetPayQueueJob): Promise<void> {
+  if (job.kind === "manual-broadcast") {
+    const { processManualBroadcastChunk } = await import("./manual-broadcast");
+    await processManualBroadcastChunk(env, job.runId, job.offset);
+    return;
+  }
   if (job.kind === "chunk") {
     await processSheetPayChunk(env, job.runId, job.offset);
     return;

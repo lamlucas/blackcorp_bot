@@ -1171,17 +1171,54 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
         }
       }
 
+      const workerOrigin = new URL(request.url).origin;
+
       ctx.waitUntil(
-        sendManualToAllChats(env, { ngay, mcc, maCampPrefix, rate, ruleLines, selectedDealers })
+        (async () => {
+          const { startManualBroadcast } = await import("./manual-broadcast");
+          await startManualBroadcast(env, {
+            ngay,
+            mcc,
+            maCampPrefix,
+            rate,
+            ruleLines,
+            selectedDealers,
+            workerOrigin,
+          });
+        })(),
       );
       return json(
         {
           ok: true,
           message: `Đang gửi tới ${selectedDealers.length} nhóm đã chọn…`,
+          total: selectedDealers.length,
         },
         202,
         request
       );
+    }
+
+    /** Tiếp lô gửi tin hàng loạt (fallback khi không có Queue). */
+    if (path === "/api/send-manual-continue" && request.method === "POST") {
+      const body = (await request.json()) as {
+        runId?: string;
+        offset?: number;
+        token?: string;
+      };
+      const runId = String(body.runId ?? "").trim();
+      const token = String(body.token ?? "").trim();
+      const offset = Number(body.offset);
+      if (!runId || !token || !Number.isFinite(offset) || offset < 0) {
+        return json({ ok: false, error: "Bad request" }, 400, request);
+      }
+      const { verifyManualBroadcastContinue, processManualBroadcastChunk } =
+        await import("./manual-broadcast");
+      const ok = await verifyManualBroadcastContinue(env, runId, token);
+      if (!ok) {
+        return json({ ok: false, error: "Forbidden" }, 403, request);
+      }
+      ctx.waitUntil(processManualBroadcastChunk(env, runId, offset));
+      return json({ ok: true, runId, offset }, 202, request);
     }
 
     return json({ ok: false, error: "Not found" }, 404, request);
@@ -1237,43 +1274,6 @@ async function verifySessionCookie(request: Request, secret: string): Promise<bo
   if (sig !== expected) return false;
   if (Number(payload) < Date.now()) return false;
   return true;
-}
-
-async function sendManualToAllChats(
-  env: Env,
-  input: {
-    ngay: string;
-    mcc: string;
-    maCampPrefix: string;
-    rate: string;
-    ruleLines: string[];
-    selectedDealers: string[];
-  }
-): Promise<void> {
-  const { formatManualMessage } = await import("./format");
-  const { sendHtmlMessage, pinMessage } = await import("./telegram");
-
-  const dealerMap = await getDealerChatMap(env.STORE);
-  const prefix = input.maCampPrefix.trim();
-
-  for (const dealerName of input.selectedDealers) {
-    const maCamp = `${prefix} - ${dealerName}`;
-    const html = formatManualMessage({
-      ngay: input.ngay,
-      mcc: input.mcc,
-      maCamp,
-      rate: input.rate,
-      ruleLines: input.ruleLines,
-    });
-    const chatId = resolveChatIdForCustomerNameColumnD(dealerName, dealerMap);
-    if (!chatId) continue;
-    try {
-      const msg = await sendHtmlMessage(env.TELEGRAM_BOT_TOKEN, chatId, html);
-      await pinMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg.message_id);
-    } catch {
-      /* một nhóm lỗi không chặn các nhóm khác */
-    }
-  }
 }
 
 /** Cron 00:00 VN — ghi cột C = cột B (nợ đầu ngày) cho tab CONG_NO. */

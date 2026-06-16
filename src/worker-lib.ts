@@ -41,6 +41,8 @@ export interface Env {
   DEBT_CRON_BATCH_PAUSE_MS?: string;
   /** Số tin chi phí / Telegram liên tiếp trước khi nghỉ dài (panel Gửi chi phí); mặc định 3 */
   SHEET_PAY_MSG_BATCH_SIZE?: string;
+  /** Số nhóm gửi mỗi lô (panel Gửi tin hàng loạt); mặc định 2 */
+  MANUAL_BROADCAST_BATCH_SIZE?: string;
   /**
    * Producer Cloudflare Queues (gửi công nợ). Có binding → cron/API chỉ enqueue; consumer gửi Telegram theo lô.
    * Không có → fallback gửi ngay trong Worker (DEV hoặc chưa tạo queue).
