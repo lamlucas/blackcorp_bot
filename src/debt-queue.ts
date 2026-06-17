@@ -4,6 +4,7 @@ import {
   getDebtRowsOrdered,
 } from "./worker-lib";
 import { getDealerChatMap, resolveChatIdForCustomerNameColumnD } from "./dealer-map";
+import { parseMoneyNumber } from "./format";
 import {
   persistDebtRunStart,
   recordDebtSentError,
@@ -22,6 +23,9 @@ export type DebtNotifyJobBody = {
 export type DebtNotifyJob = DebtNotifyJobBody & { runId: string };
 
 const QUEUE_SEND_CHUNK = 100;
+
+/** Nợ cột B dưới ngưỡng này → bỏ qua khi cron 22h gửi Telegram. */
+const DEBT_CRON_NOTIFY_MIN = 30;
 
 /** Thu thập jobs gửi công nợ: đọc A2:B tab CONG_NO (cột B có dữ liệu); cột A khớp « Tên đại lý » trong KV « Đại lý & Chat ID » → gửi vào Chat ID đó (không đọc Sheet chi phí / B1). */
 export async function collectDebtNotifyJobs(env: Env): Promise<DebtNotifyJobBody[]> {
@@ -47,6 +51,8 @@ export async function collectDebtNotifyJobs(env: Env): Promise<DebtNotifyJobBody
 
   const jobs: DebtNotifyJobBody[] = [];
   for (const { maDl, noCuDisplay } of debtRows) {
+    if (parseMoneyNumber(noCuDisplay) < DEBT_CRON_NOTIFY_MIN) continue;
+
     const chatId = resolveChatIdForCustomerNameColumnD(maDl, dealerMap);
     if (!chatId) continue;
 

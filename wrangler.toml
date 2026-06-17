@@ -22,7 +22,7 @@
 #    Panel: GET /api/telegram-bot-status (đăng nhập) để xem webhook còn trỏ nhầm không
 #    Bot Thu Chi phải ở trong nhóm đại lý (đọc tin bot Báo cáo gửi).
 # 7) npm run deploy
-# Cron: 22:00 Việt Nam (15:00 UTC) gửi công nợ; 00:00 VN (17:00 UTC) rollover cột C = B tab CONG_NO.
+# Cron: 22:00 Việt Nam (15:00 UTC) gửi công nợ (chỉ đại lý nợ cột B ≥ 30); 00:00 VN (17:00 UTC) rollover cột C = B tab CONG_NO.
 # Tắt gửi công nợ: DEBT_CRON_ENABLED = "0".
 # DEBT_CRON_BATCH_* chỉ dùng khi không gắn Queue (fallback / wrangler dev).
 #
