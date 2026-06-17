@@ -309,7 +309,7 @@ function renderCocTableFromCache() {
     const fields = ["ngay", "thu", "chi", "ten", "note"];
     for (const f of fields) {
       const td = document.createElement("td");
-      if (f === "thu" || f === "chi") td.className = "th-num";
+      if (f === "thu" || f === "chi") td.className = "td-num";
       const input = document.createElement("input");
       input.type = "text";
       input.dataset.coc = f;
@@ -1562,6 +1562,7 @@ function renderCongNoPreview(resOk, payload) {
     const td1 = document.createElement("td");
     td1.textContent = r.maDl != null ? String(r.maDl) : "";
     const td2 = document.createElement("td");
+    td2.className = "td-num";
     td2.textContent = r.noCu != null ? String(r.noCu) : "";
     tr.appendChild(td1);
     tr.appendChild(td2);

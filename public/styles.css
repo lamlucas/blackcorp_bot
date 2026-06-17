@@ -382,7 +382,8 @@ body {
   font-size: 0.88rem;
 }
 
-.data-table-editable .th-num input {
+.data-table-editable .th-num input,
+.data-table-editable td.td-num input {
   text-align: right;
 }
 
@@ -647,6 +648,13 @@ textarea.chat-id-output {
   padding: 0.65rem 0.85rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+}
+
+.chat-table th.th-num,
+.chat-table td.td-num,
+.data-table-editable td.td-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .chat-table th {
