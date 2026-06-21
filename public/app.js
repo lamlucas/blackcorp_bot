@@ -406,7 +406,8 @@ function renderChamCongTable(rows) {
   const tbody = document.getElementById("chamCongTableBody");
   if (!tbody) return;
   tbody.innerHTML = "";
-  for (const row of rows) {
+  const sorted = sortChamCongRowsNewestFirst(rows);
+  for (const row of sorted) {
     const tr = document.createElement("tr");
     const tdNgay = document.createElement("td");
     tdNgay.textContent = row.ngay ?? "";
@@ -428,6 +429,25 @@ function isoDateInputToVn(iso) {
   const m = String(iso ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return String(iso ?? "").trim();
   return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+/** Khóa sắp xếp từ ô ngày dd/mm/yyyy (chấm công). */
+function parseChamCongNgaySortKey(ngay) {
+  const t = String(ngay ?? "").trim();
+  const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return 0;
+  const d = Number(m[1]);
+  const mo = Number(m[2]);
+  const y = Number(m[3]);
+  if (!Number.isFinite(d) || !Number.isFinite(mo) || !Number.isFinite(y)) return 0;
+  return y * 10000 + mo * 100 + d;
+}
+
+/** Panel: ngày mới nhất (hôm nay) lên đầu — khác thứ tự trên Sheet. */
+function sortChamCongRowsNewestFirst(rows) {
+  return [...rows].sort(
+    (a, b) => parseChamCongNgaySortKey(b.ngay) - parseChamCongNgaySortKey(a.ngay),
+  );
 }
 
 function todayIsoDateInput() {
