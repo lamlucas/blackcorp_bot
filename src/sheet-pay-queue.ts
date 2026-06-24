@@ -11,6 +11,7 @@ import {
   recordSheetPayFooterSent,
   type SheetPayRunState,
 } from "./sheet-pay-status";
+import { appendSheetPayLog } from "./sheet-pay-log";
 import type { Env } from "./worker-lib";
 import { getAccessTokenFromEnv, getDebtMap } from "./worker-lib";
 
@@ -133,11 +134,8 @@ export async function startSheetPayRun(env: Env, opts: SheetPayStartOpts): Promi
     );
   }
   if (meta.filterMatchCount === 0) {
-    await appendSheetPayRunError(
-      env,
-      opts.runId,
-      "Không có dòng nào khớp NGÀY/MCC trên tab BAO_CAO_TK — kiểm tra cột A (ngày dd/mm/yyyy hoặc ô ngày Sheet) và cột B (MCC) khớp panel.",
-    );
+    await finishSheetPayRun(env, opts.runId);
+    return;
   } else if (meta.rowJobs.length === 0 && !opts.forceResend) {
     await appendSheetPayRunWarning(
       env,
@@ -191,6 +189,7 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
     getBaoCaoRowPaymentMissingLabels,
     isBaoCaoRowNoteDone,
     filterSlotsSignature,
+    buildFilterMismatchDiagnostic,
   } = await import("./bao-cao-tk");
   const { getCongNoColumnBForCustomerD, parseMoneyNumber } = await import("./format");
 
@@ -198,7 +197,9 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
   try {
     token = await getAccessTokenFromEnv(env);
   } catch {
-    await appendSheetPayRunError(env, opts.runId, "Kh├┤ng lß║Ñy ─æ╞░ß╗úc token Google Sheets.");
+    const errMsg = "Không lấy được token Google Sheets.";
+    await appendSheetPayRunError(env, opts.runId, errMsg);
+    await appendSheetPayLog(env, "error", errMsg, { runId: opts.runId });
     return null;
   }
 
@@ -218,13 +219,26 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
   try {
     allEntries = await readBaoCaoTkSheetRows(token, debtSpreadsheetId, BAO_CAO_TK_TAB_NAME);
   } catch {
-    await appendSheetPayRunError(env, opts.runId, "Kh├┤ng ─æß╗ìc ─æ╞░ß╗úc tab BAO_CAO_TK.");
+    const errMsg = "Không đọc được tab BAO_CAO_TK.";
+    await appendSheetPayRunError(env, opts.runId, errMsg);
+    await appendSheetPayLog(env, "error", errMsg, { runId: opts.runId });
     return null;
   }
 
   const filterRows = filterBaoCaoSheetRowsBySlots(allEntries, opts.filterSlots);
   const filterSig = filterSlotsSignature(opts.filterSlots);
   const forceResend = opts.forceResend === true;
+
+  if (filterRows.length === 0) {
+    const diag = buildFilterMismatchDiagnostic(allEntries, opts.filterSlots);
+    const errMsg = `Không khớp NGÀY/MCC: ${diag.summary}`;
+    await appendSheetPayRunError(env, opts.runId, errMsg.slice(0, 500));
+    await appendSheetPayLog(env, "error", errMsg, {
+      runId: opts.runId,
+      filterSlots: opts.filterSlots,
+      ...diag.detail,
+    });
+  }
 
   const customerTargets = new Map<string, SheetPayFooterTarget>();
   const bOldSnapshot: Record<string, number> = {};
@@ -357,21 +371,17 @@ async function scheduleNextChunk(env: Env, meta: SheetPayRunMeta, offset: number
       });
       if (res.ok || res.status === 202) return;
       if (attempt === maxAttempts - 1) {
-        await appendSheetPayRunError(
-          env,
-          meta.runId,
-          `Kh├┤ng gß╗ìi tiß║┐p l├┤ gß╗¡i (HTTP ${res.status}) ΓÇö thß╗¡ bß║Ñm Gß╗¡i lß║íi.`,
-        );
+        const errMsg = `Không gọi tiếp lô gửi (HTTP ${res.status}) — thử bấm Gửi lại.`;
+        await appendSheetPayRunError(env, meta.runId, errMsg);
+        await appendSheetPayLog(env, "error", errMsg, { runId: meta.runId, httpStatus: res.status });
         await finishSheetPayRun(env, meta.runId, { timedOut: true });
       }
     } catch (e) {
       if (attempt === maxAttempts - 1) {
         const detail = e instanceof Error ? e.message : String(e);
-        await appendSheetPayRunError(
-          env,
-          meta.runId,
-          `Lß╗ùi gß╗ìi tiß║┐p l├┤ gß╗¡i: ${detail.slice(0, 200)}`,
-        );
+        const errMsg = `Lỗi gọi tiếp lô gửi: ${detail.slice(0, 200)}`;
+        await appendSheetPayRunError(env, meta.runId, errMsg);
+        await appendSheetPayLog(env, "error", errMsg, { runId: meta.runId });
         await finishSheetPayRun(env, meta.runId, { timedOut: true });
       }
     }

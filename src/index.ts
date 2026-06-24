@@ -921,6 +921,18 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
       return json({ ok: true, run }, 200, request);
     }
 
+    /** Nhật ký gửi chi phí (KV + tab BOT_LOG trên Sheet nếu có). */
+    if (path === "/api/sheet-pay-log" && request.method === "GET") {
+      if (!(await verifySessionCookie(request, env.SESSION_SECRET))) {
+        return json({ ok: false, error: "Chưa đăng nhập" }, 401, request);
+      }
+      const { readSheetPayLog } = await import("./sheet-pay-log");
+      const limitRaw = parseInt(url.searchParams.get("limit") ?? "50", 10);
+      const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 250) : 50;
+      const entries = await readSheetPayLog(env, limit);
+      return json({ ok: true, entries }, 200, request);
+    }
+
     /** Trạng thái lần gửi công nợ gần nhất (ghi KV khi cron chạy / consumer xử lý). */
     if (path === "/api/debt-notify-status" && request.method === "GET") {
       if (!(await verifySessionCookie(request, env.SESSION_SECRET))) {

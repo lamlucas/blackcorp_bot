@@ -162,16 +162,42 @@ function extractMccIdKey(s: string): string | null {
   return m ? m[1] : null;
 }
 
-/** Cột B khớp ô MCC panel (trùng, chứa chuỗi con, hoặc cùng mã xxx-xxx-xxxx). */
+/** Phần sau « MCC » — vd « nvt/23/6 » trong « 124-805-1203 MCC NVT/23/6 ». */
+function extractMccTailKey(s: string): string | null {
+  const n = normalizeMccKey(s);
+  const afterMcc = n.match(/(?:^|\s)mcc\s+(.+)$/);
+  if (afterMcc?.[1]) return afterMcc[1].trim();
+  const slashTail = n.match(/([a-z0-9][a-z0-9/_-]*\/\d{1,2}\/\d{1,2})$/);
+  return slashTail?.[1] ?? null;
+}
+
+/** Cùng đầu/cuối mã xxx-yyy-zzzz (lỗi gõ giữa: 005 vs 805). */
+function mccIdsLooselyMatch(idA: string, idB: string): boolean {
+  const pa = idA.split("-");
+  const pb = idB.split("-");
+  if (pa.length !== 3 || pb.length !== 3) return false;
+  return pa[0] === pb[0] && pa[2] === pb[2];
+}
+
+/** Cột B khớp ô MCC panel (trùng, chứa, cùng mã, cùng hậu tố MCC, hoặc mã lỏng). */
 export function matchMccForRow(rowMcc: string, panelMcc: string): boolean {
   const b = normalizeMccKey(panelMcc);
   if (!b) return true;
   const a = normalizeMccKey(rowMcc);
   if (!a) return false;
   if (a === b || a.includes(b) || b.includes(a)) return true;
+
+  const tailA = extractMccTailKey(a);
+  const tailB = extractMccTailKey(b);
+  if (tailA && tailB && tailA === tailB) return true;
+
   const idA = extractMccIdKey(a);
   const idB = extractMccIdKey(b);
-  return Boolean(idA && idB && idA === idB);
+  if (idA && idB) {
+    if (idA === idB) return true;
+    if (mccIdsLooselyMatch(idA, idB)) return true;
+  }
+  return false;
 }
 
 /** Tách chuỗi nhiều dòng (panel textarea) thành danh sách không rỗng. */
@@ -434,6 +460,48 @@ export async function readBaoCaoTkSheetRows(
     dataRows.push({ sheetRow1Based: i + 2, cells: row });
   }
   return dataRows;
+}
+
+/** Gợi ý khi lọc NGÀY/MCC không ra dòng — liệt kê MCC thực tế trên Sheet theo ngày. */
+export function buildFilterMismatchDiagnostic(
+  entries: BaoCaoTkSheetRow[],
+  slots: BaoCaoFilterSlot[],
+): { summary: string; detail: Record<string, unknown> } {
+  const hints: string[] = [];
+  const slotDetails: Record<string, unknown>[] = [];
+
+  for (const slot of slots) {
+    const panel = normalizePanelDateKey(slot.panelNgay);
+    const mccOnDate: string[] = [];
+    let rowsOnDate = 0;
+    for (const e of entries) {
+      const rowA = String(e.cells[BAO_CAO_COL.NGAY] ?? "");
+      if (!matchPanelDateForRow(rowA, panel)) continue;
+      rowsOnDate++;
+      const rowB = String(e.cells[BAO_CAO_COL.MCC] ?? "").trim();
+      if (rowB && !mccOnDate.includes(rowB)) mccOnDate.push(rowB);
+    }
+    const panelMccRaw = slot.panelMcc;
+    const mccHint =
+      mccOnDate.length > 0
+        ? mccOnDate.slice(0, 8).join(" | ")
+        : "(không có dòng có tên khách cột D)";
+    hints.push(
+      `Ngày ${panel}: ${rowsOnDate} dòng; MCC Sheet: ${mccHint}` +
+        (panelMccRaw ? `; panel MCC: «${panelMccRaw}»` : ""),
+    );
+    slotDetails.push({
+      panelNgay: panel,
+      panelMcc: panelMccRaw,
+      rowsOnDate,
+      mccOnSheet: mccOnDate,
+    });
+  }
+
+  return {
+    summary: hints.join(" — "),
+    detail: { slots: slotDetails },
+  };
 }
 
 /**

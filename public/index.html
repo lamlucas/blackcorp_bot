@@ -238,6 +238,14 @@
               <button type="button" class="btn primary wide" id="sendSheetPayment">Gửi</button>
             </div>
             <p id="sheetPayMsg" class="msg panel-msg" hidden></p>
+            <div class="panel-block sheet-pay-log-block">
+              <div class="sheet-pay-log-head">
+                <span class="broadcast-tabs-legend" id="lblSheetPayLog">Nhật ký lỗi gửi chi phí</span>
+                <button type="button" class="btn ghost btn-sm" id="sheetPayLogRefresh">Làm mới</button>
+              </div>
+              <p class="hint" id="sheetPayLogHint">Ghi KV + tab <b>BOT_LOG</b> trên Sheet (cột A–D). Dùng để tra NGÀY/MCC không khớp.</p>
+              <div id="sheetPayLogList" class="sheet-pay-log-list" hidden></div>
+            </div>
             <div id="sheetPayConfirmModal" class="sheet-pay-modal" hidden>
               <div class="sheet-pay-modal-backdrop" id="sheetPayConfirmBackdrop"></div>
               <div class="sheet-pay-modal-box card" role="dialog" aria-labelledby="sheetPayConfirmTitle">

@@ -212,6 +212,7 @@ function setTab(tab) {
   if (t === "coc") void loadCocTable();
   if (t === "cham-cong") void loadChamCongPanel();
   if (t === "email") void loadMailListPanel();
+  if (t === "sheet-pay") void loadSheetPayLog();
 }
 
 function restoreTab() {
@@ -1326,6 +1327,46 @@ document.getElementById("sendSheetPayment").addEventListener("click", () => {
   void submitSheetPayment(false);
 });
 
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function loadSheetPayLog() {
+  const list = document.getElementById("sheetPayLogList");
+  if (!list) return;
+  const url = apiUrl("/api/sheet-pay-log?limit=30");
+  if (!url) return;
+  const res = await fetch(url, { credentials: "include" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok || !Array.isArray(data.entries) || data.entries.length === 0) {
+    list.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+  list.hidden = false;
+  list.innerHTML = data.entries
+    .slice()
+    .reverse()
+    .map((e) => {
+      const level = e.level === "warn" ? "warn" : e.level === "error" ? "error" : "info";
+      const at = e.at ? new Date(e.at).toLocaleString("vi-VN") : "";
+      const detail =
+        e.detail && Object.keys(e.detail).length > 0
+          ? `<pre class="sheet-pay-log-detail">${escapeHtml(JSON.stringify(e.detail, null, 2))}</pre>`
+          : "";
+      return `<article class="sheet-pay-log-item is-${level}"><time>${escapeHtml(at)}</time><div>${escapeHtml(e.message || "")}</div>${detail}</article>`;
+    })
+    .join("");
+}
+
+document.getElementById("sheetPayLogRefresh")?.addEventListener("click", () => {
+  void loadSheetPayLog();
+});
+
 let sheetPayResendPayload = null;
 
 function hideSheetPayConfirmModal() {
@@ -1482,6 +1523,7 @@ async function pollSheetPayStatus(runId, msgEl) {
 
     if (errors.length > 0) {
       show(msgEl, errors.join(" · "), true);
+      void loadSheetPayLog();
       return;
     }
     if (warnings.length > 0) {
