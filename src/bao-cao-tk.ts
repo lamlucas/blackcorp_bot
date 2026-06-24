@@ -3,7 +3,6 @@ import { batchGetValues } from "./worker-lib";
 
 export const BAO_CAO_TK_TAB_NAME = "BAO_CAO_TK";
 
-const MAX_ROW = 500;
 const COL_COUNT = 13;
 
 /** Cột tab BAO_CAO_TK (hàng 1 tiêu đề). */
@@ -415,14 +414,14 @@ function readBaoCaoRowMcc(row: string[]): string {
   return String(row[BAO_CAO_COL.MCC] ?? "").trim();
 }
 
-/** Đọc dòng 2+ tab BAO_CAO_TK (A:M), giữ số dòng Sheet. */
+/** Đọc dòng 2+ tab BAO_CAO_TK (A:M) — toàn bộ dòng có dữ liệu, không giới hạn số hàng. */
 export async function readBaoCaoTkSheetRows(
   accessToken: string,
   spreadsheetId: string,
   tabName: string = BAO_CAO_TK_TAB_NAME,
 ): Promise<BaoCaoTkSheetRow[]> {
   const q = quoteSheet(tabName);
-  const parts = await batchGetValues(accessToken, spreadsheetId, [`${q}!A2:M${MAX_ROW}`], {
+  const parts = await batchGetValues(accessToken, spreadsheetId, [`${q}!A2:M`], {
     valueRenderOption: "FORMATTED_VALUE",
   });
   const rawRows = parts[0] ?? [];
