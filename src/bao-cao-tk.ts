@@ -145,7 +145,7 @@ export function parseFilterDatesFromPanel(raw: unknown[]): string[] {
 
 export type BaoCaoFilterSlot = { panelNgay: string; panelMcc: string };
 
-/** Chuẩn hóa MCC (cột B) để so khớp — bỏ khoảng thừa, gạch unicode, không phân biệt hoa thường. */
+/** Chuẩn hóa tên MCC cột B (trim, gạch unicode, không phân biệt hoa thường) — chỉ để so sánh. */
 export function normalizeMccKey(s: string): string {
   return String(s ?? "")
     .replace(/\u00a0/g, " ")
@@ -156,26 +156,16 @@ export function normalizeMccKey(s: string): string {
     .toLowerCase();
 }
 
-/** Mã MCC dạng 960-341-6876 trong chuỗi cột B. */
-function extractMccIdKey(s: string): string | null {
-  const m = normalizeMccKey(s).match(/(\d{3}-\d{3}-\d{4})/);
-  return m ? m[1] : null;
-}
-
 /**
- * Cột B khớp ô MCC panel — chuẩn hóa rồi so trùng toàn chuỗi (không khớp lỏng / contains).
- * Panel chỉ nhập mã xxx-xxx-xxxx → khớp khi mã Sheet trùng hệt.
+ * Panel MCC ↔ cột B tab BAO_CAO_TK: trùng chuỗi sau chuẩn hóa.
+ * Panel MCC trống → chỉ lọc theo ngày (cột A).
  */
 export function matchMccForRow(rowMcc: string, panelMcc: string): boolean {
-  const b = normalizeMccKey(panelMcc);
-  if (!b) return true;
-  const a = normalizeMccKey(rowMcc);
-  if (!a) return false;
-  if (a === b) return true;
-  const idA = extractMccIdKey(a);
-  const idB = extractMccIdKey(b);
-  if (idA && idB && idA === idB && (a === idA || b === idB)) return true;
-  return false;
+  const panel = normalizeMccKey(panelMcc);
+  if (!panel) return true;
+  const row = normalizeMccKey(rowMcc);
+  if (!row) return false;
+  return row === panel;
 }
 
 /** Tách chuỗi nhiều dòng (panel textarea) thành danh sách không rỗng. */
@@ -202,7 +192,7 @@ export function parseExcludeMccs(raw: unknown): string[] {
   return out;
 }
 
-/** Mỗi dòng NGÀY ghép MCC cùng chỉ số (MCC trống = chỉ lọc ngày). */
+/** Mỗi dòng NGÀY ghép MCC cùng chỉ số (MCC trống = chỉ lọc ngày cột A). */
 export function parseFilterSlotsFromPanel(dates: unknown[], mccs: unknown[]): BaoCaoFilterSlot[] {
   const dateLines = parseMultilineInput(dates);
   const mccLines = parseMultilineInput(mccs);
@@ -211,11 +201,11 @@ export function parseFilterSlotsFromPanel(dates: unknown[], mccs: unknown[]): Ba
   for (let i = 0; i < dateLines.length; i++) {
     const panelNgay = normalizePanelDateKey(dateLines[i]);
     if (!panelNgay) continue;
-    const panelMcc = normalizeMccKey(mccLines[i] ?? "");
+    const panelMcc = String(mccLines[i] ?? "").trim();
     const sig = (() => {
       const p = parseSheetNgayCell(panelNgay);
       const d = p ? datePartsKey(p) : panelNgay.toLowerCase();
-      return `${d}|${panelMcc}`;
+      return `${d}|${normalizeMccKey(panelMcc)}`;
     })();
     if (seen.has(sig)) continue;
     seen.add(sig);
@@ -263,7 +253,7 @@ export function isBaoCaoRowPaymentIncomplete(row: string[]): boolean {
   return getBaoCaoRowPaymentMissingLabels(row).length > 0;
 }
 
-/** Cột A khớp một ngày panel → trả về chuỗi ngày user nhập (hiển thị NGÀY trong tin). */
+/** Cột A khớp ngày panel (dd/mm/yyyy hoặc ô ngày Sheet). */
 export function matchPanelDateForRow(rowNgay: string, panelDate: string): boolean {
   if (!normalizePanelDateKey(rowNgay) || !normalizePanelDateKey(panelDate)) return false;
   return sameCalendarDate(rowNgay, panelDate);
@@ -414,13 +404,13 @@ export function hashBaoCaoTkRowSnapshot(row: string[]): string {
 
 export type BaoCaoTkSheetRow = { sheetRow1Based: number; cells: string[] };
 
-/** NGÀY/MCC hiệu lực — kế thừa từ dòng header khi ô gộp Sheet để trống. */
+/** NGÀY/MCC hiệu lực từ cột A/B — kế thừa khi Sheet gộp ô (dòng con để trống A/B). */
 export type BaoCaoTkEnrichedRow = BaoCaoTkSheetRow & {
   effectiveNgay: string;
   effectiveMcc: string;
 };
 
-/** Điền NGÀY (cột A) và MCC (cột B) xuống các dòng con trong cùng khối Sheet. */
+/** Điền cột A (ngày) và cột B (tên MCC) xuống các dòng con trong khối Sheet. */
 export function enrichBaoCaoTkRowsWithBlockHeaders(
   entries: BaoCaoTkSheetRow[],
 ): BaoCaoTkEnrichedRow[] {
@@ -514,7 +504,8 @@ export function buildFilterMismatchDiagnostic(
 }
 
 /**
- * Gộp dòng: cột A trùng ngày panel; nếu ô MCC có giá trị thì cột B phải khớp MCC.
+ * Lọc tab BAO_CAO_TK: ngày panel ↔ cột A; tên MCC panel ↔ cột B (ô gộp → dùng giá trị khối).
+ * MCC panel trống → mọi dòng có cùng ngày cột A.
  */
 export function filterBaoCaoSheetRowsBySlots(
   entries: BaoCaoTkSheetRow[],
