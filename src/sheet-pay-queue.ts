@@ -136,7 +136,7 @@ export async function startSheetPayRun(env: Env, opts: SheetPayStartOpts): Promi
     await appendSheetPayRunError(
       env,
       opts.runId,
-      "Không có dòng nào khớp NGÀY/MCC trên tab BAO_CAO_TK — kiểm tra ô MCC panel và cột B Sheet.",
+      "Không có dòng nào khớp NGÀY/MCC trên tab BAO_CAO_TK — kiểm tra cột A (ngày dd/mm/yyyy hoặc ô ngày Sheet) và cột B (MCC) khớp panel.",
     );
   } else if (meta.rowJobs.length === 0 && !opts.forceResend) {
     await appendSheetPayRunWarning(

@@ -51,6 +51,70 @@ export function normalizePanelDateKey(s: string): string {
 
 type DateParts = { y: number; m: number; d: number };
 
+function datePartsKey(p: DateParts): string {
+  return `${p.y}-${p.m}-${p.d}`;
+}
+
+/** Google Sheets serial (ô ngày lưu dạng số) → ngày lịch. */
+function googleSerialToDateParts(serial: number): DateParts | null {
+  if (!Number.isFinite(serial) || serial < 1) return null;
+  const epochMs = Date.UTC(1899, 11, 30);
+  const d = new Date(epochMs + Math.round(serial) * 86400000);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  if (m < 1 || m > 12 || day < 1 || day > 31) return null;
+  return { y, m, d: day };
+}
+
+/**
+ * Parse ngày từ panel hoặc cột A Sheet: dd/mm/yyyy, serial Sheets, yyyy-mm-dd, m/d/yyyy (US).
+ */
+export function parseSheetNgayCell(raw: string): DateParts | null {
+  const t = normalizePanelDateKey(String(raw ?? ""));
+  if (!t) return null;
+
+  const compact = t.replace(/,/g, "");
+  if (/^\d+(\.\d+)?$/.test(compact)) {
+    const serial = Math.floor(Number(compact));
+    if (serial >= 30000 && serial <= 120000) {
+      const fromSerial = googleSerialToDateParts(serial);
+      if (fromSerial) return fromSerial;
+    }
+  }
+
+  const iso = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) {
+    const y = Number(iso[1]);
+    const m = Number(iso[2]);
+    const d = Number(iso[3]);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return { y, m, d };
+  }
+
+  const slash = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
+  if (slash) {
+    const n1 = Number(slash[1]);
+    const n2 = Number(slash[2]);
+    let y = Number(slash[3]);
+    if (y < 100) y += 2000;
+    let day: number;
+    let month: number;
+    if (n1 > 12) {
+      day = n1;
+      month = n2;
+    } else if (n2 > 12) {
+      month = n1;
+      day = n2;
+    } else {
+      day = n1;
+      month = n2;
+    }
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return { y, m: month, d: day };
+  }
+
+  return parseFlexibleDateParts(t);
+}
+
 /** dd/mm/yyyy, d/m/yy — không parse dạng 13-14/5 (phải khớp chuỗi đúng). */
 export function parseFlexibleDateParts(s: string): DateParts | null {
   const t = normalizePanelDateKey(s);
@@ -66,9 +130,9 @@ export function parseFlexibleDateParts(s: string): DateParts | null {
 }
 
 function sameCalendarDate(a: string, b: string): boolean {
-  const pa = parseFlexibleDateParts(a);
-  const pb = parseFlexibleDateParts(b);
-  if (pa && pb) return pa.y === pb.y && pa.m === pb.m && pa.d === pb.d;
+  const pa = parseSheetNgayCell(a);
+  const pb = parseSheetNgayCell(b);
+  if (pa && pb) return datePartsKey(pa) === datePartsKey(pb);
   const na = normalizePanelDateKey(a).toLowerCase();
   const nb = normalizePanelDateKey(b).toLowerCase();
   return Boolean(na && nb && na === nb);
@@ -86,18 +150,28 @@ export function normalizeMccKey(s: string): string {
   return String(s ?? "")
     .replace(/\u00a0/g, " ")
     .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/&amp;/gi, "&")
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase();
 }
 
-/** Cột B khớp ô MCC panel (trùng hoặc chứa chuỗi con). */
+/** Mã MCC dạng 960-341-6876 trong chuỗi cột B. */
+function extractMccIdKey(s: string): string | null {
+  const m = normalizeMccKey(s).match(/(\d{3}-\d{3}-\d{4})/);
+  return m ? m[1] : null;
+}
+
+/** Cột B khớp ô MCC panel (trùng, chứa chuỗi con, hoặc cùng mã xxx-xxx-xxxx). */
 export function matchMccForRow(rowMcc: string, panelMcc: string): boolean {
   const b = normalizeMccKey(panelMcc);
   if (!b) return true;
   const a = normalizeMccKey(rowMcc);
   if (!a) return false;
-  return a === b || a.includes(b) || b.includes(a);
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+  const idA = extractMccIdKey(a);
+  const idB = extractMccIdKey(b);
+  return Boolean(idA && idB && idA === idB);
 }
 
 /** Tách chuỗi nhiều dòng (panel textarea) thành danh sách không rỗng. */
@@ -135,8 +209,8 @@ export function parseFilterSlotsFromPanel(dates: unknown[], mccs: unknown[]): Ba
     if (!panelNgay) continue;
     const panelMcc = normalizeMccKey(mccLines[i] ?? "");
     const sig = (() => {
-      const p = parseFlexibleDateParts(panelNgay);
-      const d = p ? `${p.y}-${p.m}-${p.d}` : panelNgay.toLowerCase();
+      const p = parseSheetNgayCell(panelNgay);
+      const d = p ? datePartsKey(p) : panelNgay.toLowerCase();
       return `${d}|${panelMcc}`;
     })();
     if (seen.has(sig)) continue;
@@ -204,8 +278,8 @@ export function isBaoCaoRowNoteDone(row: string[]): boolean {
 export function filterSlotsSignature(slots: BaoCaoFilterSlot[]): string {
   return slots
     .map((s) => {
-      const p = parseFlexibleDateParts(s.panelNgay);
-      const d = p ? `${p.y}-${String(p.m).padStart(2, "0")}-${String(p.d).padStart(2, "0")}` : s.panelNgay;
+      const p = parseSheetNgayCell(s.panelNgay);
+      const d = p ? datePartsKey(p) : s.panelNgay.toLowerCase();
       return `${d}|${normalizeMccKey(s.panelMcc)}`;
     })
     .join(";");
@@ -346,7 +420,9 @@ export async function readBaoCaoTkSheetRows(
   tabName: string = BAO_CAO_TK_TAB_NAME,
 ): Promise<BaoCaoTkSheetRow[]> {
   const q = quoteSheet(tabName);
-  const parts = await batchGetValues(accessToken, spreadsheetId, [`${q}!A2:M${MAX_ROW}`]);
+  const parts = await batchGetValues(accessToken, spreadsheetId, [`${q}!A2:M${MAX_ROW}`], {
+    valueRenderOption: "FORMATTED_VALUE",
+  });
   const rawRows = parts[0] ?? [];
   const dataRows: BaoCaoTkSheetRow[] = [];
   for (let i = 0; i < rawRows.length; i++) {

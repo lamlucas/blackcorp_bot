@@ -122,11 +122,13 @@ export async function getSheetTitles(accessToken: string, spreadsheetId: string)
 export async function batchGetValues(
   accessToken: string,
   spreadsheetId: string,
-  ranges: string[]
+  ranges: string[],
+  opts?: { valueRenderOption?: "FORMATTED_VALUE" | "UNFORMATTED_VALUE" | "FORMULA" },
 ): Promise<string[][][]> {
   const params = new URLSearchParams();
   for (const r of ranges) params.append("ranges", r);
   params.set("majorDimension", "ROWS");
+  if (opts?.valueRenderOption) params.set("valueRenderOption", opts.valueRenderOption);
   const path = `${spreadsheetId}/values:batchGet?${params.toString()}`;
   const data = await sheetsGet<BatchGetResponse>(accessToken, path);
   const out: string[][][] = [];
