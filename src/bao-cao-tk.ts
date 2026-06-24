@@ -162,62 +162,19 @@ function extractMccIdKey(s: string): string | null {
   return m ? m[1] : null;
 }
 
-/** Phần sau « MCC » — vd « nvt/23/6 » trong « 124-805-1203 MCC NVT/23/6 ». */
-function extractMccTailKey(s: string): string | null {
-  const n = normalizeMccKey(s);
-  const afterMcc = n.match(/(?:^|\s)mcc\s+(.+)$/);
-  if (afterMcc?.[1]) return afterMcc[1].trim();
-  const slashTail = n.match(/([a-z0-9][a-z0-9/_-]*\/\d{1,2}\/\d{1,2})$/);
-  return slashTail?.[1] ?? null;
-}
-
-/** Cùng đầu/cuối mã xxx-yyy-zzzz (lỗi gõ giữa: 005 vs 805). */
-function mccIdsLooselyMatch(idA: string, idB: string): boolean {
-  const pa = idA.split("-");
-  const pb = idB.split("-");
-  if (pa.length !== 3 || pb.length !== 3) return false;
-  return pa[0] === pb[0] && pa[2] === pb[2];
-}
-
-/** Cùng hậu tố ngày (vd /23/6); cho phép lệch 1 ký tự phần mã (NV1 ↔ NVT). */
-function mccTailsLooselyMatch(tailA: string, tailB: string): boolean {
-  if (tailA === tailB) return true;
-  const da = tailA.match(/^(.+)\/(\d{1,2}\/\d{1,2})$/);
-  const db = tailB.match(/^(.+)\/(\d{1,2}\/\d{1,2})$/);
-  if (!da || !db || da[2] !== db[2]) return false;
-  const pa = da[1];
-  const pb = db[1];
-  if (pa === pb) return true;
-  if (Math.abs(pa.length - pb.length) > 1) return false;
-  let diff = 0;
-  const maxLen = Math.max(pa.length, pb.length);
-  for (let i = 0; i < maxLen; i++) {
-    const ca = pa[i] ?? "";
-    const cb = pb[i] ?? "";
-    if (ca !== cb) diff++;
-    if (diff > 1) return false;
-  }
-  return diff === 1;
-}
-
-/** Cột B khớp ô MCC panel (trùng, chứa, cùng mã, cùng hậu tố MCC, hoặc mã lỏng). */
+/**
+ * Cột B khớp ô MCC panel — chuẩn hóa rồi so trùng toàn chuỗi (không khớp lỏng / contains).
+ * Panel chỉ nhập mã xxx-xxx-xxxx → khớp khi mã Sheet trùng hệt.
+ */
 export function matchMccForRow(rowMcc: string, panelMcc: string): boolean {
   const b = normalizeMccKey(panelMcc);
   if (!b) return true;
   const a = normalizeMccKey(rowMcc);
   if (!a) return false;
-  if (a === b || a.includes(b) || b.includes(a)) return true;
-
-  const tailA = extractMccTailKey(a);
-  const tailB = extractMccTailKey(b);
-  if (tailA && tailB && (tailA === tailB || mccTailsLooselyMatch(tailA, tailB))) return true;
-
+  if (a === b) return true;
   const idA = extractMccIdKey(a);
   const idB = extractMccIdKey(b);
-  if (idA && idB) {
-    if (idA === idB) return true;
-    if (mccIdsLooselyMatch(idA, idB)) return true;
-  }
+  if (idA && idB && idA === idB && (a === idA || b === idB)) return true;
   return false;
 }
 
@@ -457,8 +414,39 @@ export function hashBaoCaoTkRowSnapshot(row: string[]): string {
 
 export type BaoCaoTkSheetRow = { sheetRow1Based: number; cells: string[] };
 
+/** NGÀY/MCC hiệu lực — kế thừa từ dòng header khi ô gộp Sheet để trống. */
+export type BaoCaoTkEnrichedRow = BaoCaoTkSheetRow & {
+  effectiveNgay: string;
+  effectiveMcc: string;
+};
+
+/** Điền NGÀY (cột A) và MCC (cột B) xuống các dòng con trong cùng khối Sheet. */
+export function enrichBaoCaoTkRowsWithBlockHeaders(
+  entries: BaoCaoTkSheetRow[],
+): BaoCaoTkEnrichedRow[] {
+  let lastNgay = "";
+  let lastMcc = "";
+  const out: BaoCaoTkEnrichedRow[] = [];
+  for (const e of entries) {
+    const rawA = String(e.cells[BAO_CAO_COL.NGAY] ?? "").trim();
+    const rawB = String(e.cells[BAO_CAO_COL.MCC] ?? "").trim();
+    if (rawA) lastNgay = rawA;
+    if (rawB) lastMcc = rawB;
+    out.push({
+      ...e,
+      effectiveNgay: rawA || lastNgay,
+      effectiveMcc: rawB || lastMcc,
+    });
+  }
+  return out;
+}
+
 /** Dòng đã lọc — `panelNgay` = ngày nhập trên website (không dùng cột A để hiển thị). */
-export type BaoCaoTkFilteredRow = BaoCaoTkSheetRow & { panelNgay: string };
+export type BaoCaoTkFilteredRow = BaoCaoTkSheetRow & {
+  panelNgay: string;
+  effectiveNgay: string;
+  effectiveMcc: string;
+};
 
 /** Đọc dòng 2+ tab BAO_CAO_TK (A:M), giữ số dòng Sheet. */
 export async function readBaoCaoTkSheetRows(
@@ -488,6 +476,7 @@ export function buildFilterMismatchDiagnostic(
   entries: BaoCaoTkSheetRow[],
   slots: BaoCaoFilterSlot[],
 ): { summary: string; detail: Record<string, unknown> } {
+  const enriched = enrichBaoCaoTkRowsWithBlockHeaders(entries);
   const hints: string[] = [];
   const slotDetails: Record<string, unknown>[] = [];
 
@@ -495,12 +484,11 @@ export function buildFilterMismatchDiagnostic(
     const panel = normalizePanelDateKey(slot.panelNgay);
     const mccOnDate: string[] = [];
     let rowsOnDate = 0;
-    for (const e of entries) {
-      const rowA = String(e.cells[BAO_CAO_COL.NGAY] ?? "");
-      if (!matchPanelDateForRow(rowA, panel)) continue;
+    for (const e of enriched) {
+      if (!matchPanelDateForRow(e.effectiveNgay, panel)) continue;
       rowsOnDate++;
-      const rowB = String(e.cells[BAO_CAO_COL.MCC] ?? "").trim();
-      if (rowB && !mccOnDate.includes(rowB)) mccOnDate.push(rowB);
+      const mcc = e.effectiveMcc.trim();
+      if (mcc && !mccOnDate.includes(mcc)) mccOnDate.push(mcc);
     }
     const panelMccRaw = slot.panelMcc;
     const mccHint =
@@ -532,16 +520,21 @@ export function filterBaoCaoSheetRowsBySlots(
   entries: BaoCaoTkSheetRow[],
   slots: BaoCaoFilterSlot[],
 ): BaoCaoTkFilteredRow[] {
+  const enriched = enrichBaoCaoTkRowsWithBlockHeaders(entries);
   const bySheetRow = new Map<number, BaoCaoTkFilteredRow>();
   for (const slot of slots) {
     const panel = normalizePanelDateKey(slot.panelNgay);
     if (!panel) continue;
-    for (const e of entries) {
-      const rowA = String(e.cells[BAO_CAO_COL.NGAY] ?? "");
-      const rowB = String(e.cells[BAO_CAO_COL.MCC] ?? "");
-      if (!matchPanelDateForRow(rowA, panel)) continue;
-      if (!matchMccForRow(rowB, slot.panelMcc)) continue;
-      bySheetRow.set(e.sheetRow1Based, { ...e, panelNgay: panel });
+    for (const e of enriched) {
+      if (!matchPanelDateForRow(e.effectiveNgay, panel)) continue;
+      if (!matchMccForRow(e.effectiveMcc, slot.panelMcc)) continue;
+      bySheetRow.set(e.sheetRow1Based, {
+        sheetRow1Based: e.sheetRow1Based,
+        cells: e.cells,
+        panelNgay: panel,
+        effectiveNgay: e.effectiveNgay,
+        effectiveMcc: e.effectiveMcc,
+      });
     }
   }
   return [...bySheetRow.values()].sort((a, b) => a.sheetRow1Based - b.sheetRow1Based);
