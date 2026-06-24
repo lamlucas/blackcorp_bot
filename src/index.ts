@@ -427,6 +427,8 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
         linkFiles?: unknown[];
         forceResend?: boolean;
         force?: boolean;
+        /** Đã xác nhận popup — chỉ gửi dòng chưa Done (bỏ qua hỏi lại). */
+        sendPendingOnly?: boolean;
       };
       const rawDates = Array.isArray(body.dates)
         ? body.dates
@@ -474,6 +476,7 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
       }
 
       const forceResend = body.forceResend === true || body.force === true;
+      const sendPendingOnly = body.sendPendingOnly === true;
 
         const {
         readBaoCaoTkSheetRows,
@@ -498,7 +501,7 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
         });
         const doneRows = listDoneFilterRows(eligible);
         const pendingRows = eligible.filter((e) => !isBaoCaoRowNoteDone(e.cells));
-        if (doneRows.length > 0) {
+        if (doneRows.length > 0 && !sendPendingOnly) {
           const confirmMode = pendingRows.length > 0 ? "mixed" : "all_done";
           return json(
             {

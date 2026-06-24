@@ -49,6 +49,7 @@ export type SheetPayRunMeta = {
   unmappedCustomers: string[];
   /** Dòng bỏ qua vì thiếu cột bắt buộc */
   incompleteRows: { customerD: string; sheetRow: number; missing: string[] }[];
+  filterMatchCount: number;
 };
 
 export type SheetPayStartOpts = {
@@ -129,6 +130,19 @@ export async function startSheetPayRun(env: Env, opts: SheetPayStartOpts): Promi
       env,
       opts.runId,
       `Dòng ${row.sheetRow} (${row.customerD}): thiếu ${row.missing.join(", ")}.`,
+    );
+  }
+  if (meta.filterMatchCount === 0) {
+    await appendSheetPayRunError(
+      env,
+      opts.runId,
+      "Không có dòng nào khớp NGÀY/MCC trên tab BAO_CAO_TK — kiểm tra ô MCC panel và cột B Sheet.",
+    );
+  } else if (meta.rowJobs.length === 0 && !opts.forceResend) {
+    await appendSheetPayRunWarning(
+      env,
+      opts.runId,
+      "Không có dòng chi phí mới (các dòng lọc đều Done). Chọn Xác nhận trên popup để gửi lại.",
     );
   }
   if (meta.rowJobs.length === 0 && meta.footerTargets.length === 0) {
@@ -292,6 +306,7 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
     rowsSent: 0,
     unmappedCustomers: [...unmappedPending],
     incompleteRows,
+    filterMatchCount: filterRows.length,
   };
 
   await saveSheetPayMeta(env, meta);

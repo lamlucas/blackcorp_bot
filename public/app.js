@@ -1378,7 +1378,7 @@ document.getElementById("sheetPayConfirmNo")?.addEventListener("click", () => {
   const payload = sheetPayResendPayload;
   hideSheetPayConfirmModal();
   if (payload?.confirmMode === "mixed") {
-    void submitSheetPayment(false, payload);
+    void submitSheetPayment(false, { ...payload, sendPendingOnly: true });
   }
 });
 document.getElementById("sheetPayConfirmBackdrop")?.addEventListener("click", hideSheetPayConfirmModal);
@@ -1400,6 +1400,7 @@ async function submitSheetPayment(forceResend, payloadOverride) {
   const excludeMccs =
     payloadOverride?.excludeMccs ??
     parseMultilineField(document.getElementById("sheetPayExcludeMccs")?.value ?? "");
+  const sendPendingOnly = payloadOverride?.sendPendingOnly === true;
   if (dates.length === 0) {
     show(msg, "Điền ít nhất một dòng NGÀY.", true);
     return;
@@ -1408,7 +1409,13 @@ async function submitSheetPayment(forceResend, payloadOverride) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ dates, mccs, excludeMccs, forceResend: forceResend === true }),
+    body: JSON.stringify({
+      dates,
+      mccs,
+      excludeMccs,
+      forceResend: forceResend === true,
+      sendPendingOnly,
+    }),
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) {

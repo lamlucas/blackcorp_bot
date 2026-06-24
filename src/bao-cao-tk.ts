@@ -81,9 +81,11 @@ export function parseFilterDatesFromPanel(raw: unknown[]): string[] {
 
 export type BaoCaoFilterSlot = { panelNgay: string; panelMcc: string };
 
-/** Chuẩn hóa MCC (cột B) để so khớp — bỏ khoảng thừa, không phân biệt hoa thường. */
+/** Chuẩn hóa MCC (cột B) để so khớp — bỏ khoảng thừa, gạch unicode, không phân biệt hoa thường. */
 export function normalizeMccKey(s: string): string {
   return String(s ?? "")
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase();
