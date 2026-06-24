@@ -495,7 +495,9 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
         );
         const filterRows = filterBaoCaoSheetRowsBySlots(allEntries, filterSlots);
         const eligible = filterRows.filter((e) => {
-          return !isRowExcludedByMcc(e.effectiveNgay, e.effectiveMcc, e.panelNgay, excludeMccs);
+          const rowNgay = String(e.cells[BAO_CAO_COL.NGAY] ?? "").trim();
+          const rowMcc = String(e.cells[BAO_CAO_COL.MCC] ?? "").trim();
+          return !isRowExcludedByMcc(rowNgay, rowMcc, e.panelNgay, excludeMccs);
         });
         const doneRows = listDoneFilterRows(eligible);
         const pendingRows = eligible.filter((e) => !isBaoCaoRowNoteDone(e.cells));

@@ -404,39 +404,16 @@ export function hashBaoCaoTkRowSnapshot(row: string[]): string {
 
 export type BaoCaoTkSheetRow = { sheetRow1Based: number; cells: string[] };
 
-/** NGÀY/MCC hiệu lực từ cột A/B — kế thừa khi Sheet gộp ô (dòng con để trống A/B). */
-export type BaoCaoTkEnrichedRow = BaoCaoTkSheetRow & {
-  effectiveNgay: string;
-  effectiveMcc: string;
-};
+/** Dòng đã lọc — `panelNgay` = ngày nhập trên website (hiển thị NGÀY trong tin). */
+export type BaoCaoTkFilteredRow = BaoCaoTkSheetRow & { panelNgay: string };
 
-/** Điền cột A (ngày) và cột B (tên MCC) xuống các dòng con trong khối Sheet. */
-export function enrichBaoCaoTkRowsWithBlockHeaders(
-  entries: BaoCaoTkSheetRow[],
-): BaoCaoTkEnrichedRow[] {
-  let lastNgay = "";
-  let lastMcc = "";
-  const out: BaoCaoTkEnrichedRow[] = [];
-  for (const e of entries) {
-    const rawA = String(e.cells[BAO_CAO_COL.NGAY] ?? "").trim();
-    const rawB = String(e.cells[BAO_CAO_COL.MCC] ?? "").trim();
-    if (rawA) lastNgay = rawA;
-    if (rawB) lastMcc = rawB;
-    out.push({
-      ...e,
-      effectiveNgay: rawA || lastNgay,
-      effectiveMcc: rawB || lastMcc,
-    });
-  }
-  return out;
+function readBaoCaoRowNgay(row: string[]): string {
+  return String(row[BAO_CAO_COL.NGAY] ?? "").trim();
 }
 
-/** Dòng đã lọc — `panelNgay` = ngày nhập trên website (không dùng cột A để hiển thị). */
-export type BaoCaoTkFilteredRow = BaoCaoTkSheetRow & {
-  panelNgay: string;
-  effectiveNgay: string;
-  effectiveMcc: string;
-};
+function readBaoCaoRowMcc(row: string[]): string {
+  return String(row[BAO_CAO_COL.MCC] ?? "").trim();
+}
 
 /** Đọc dòng 2+ tab BAO_CAO_TK (A:M), giữ số dòng Sheet. */
 export async function readBaoCaoTkSheetRows(
@@ -466,7 +443,6 @@ export function buildFilterMismatchDiagnostic(
   entries: BaoCaoTkSheetRow[],
   slots: BaoCaoFilterSlot[],
 ): { summary: string; detail: Record<string, unknown> } {
-  const enriched = enrichBaoCaoTkRowsWithBlockHeaders(entries);
   const hints: string[] = [];
   const slotDetails: Record<string, unknown>[] = [];
 
@@ -474,11 +450,12 @@ export function buildFilterMismatchDiagnostic(
     const panel = normalizePanelDateKey(slot.panelNgay);
     const mccOnDate: string[] = [];
     let rowsOnDate = 0;
-    for (const e of enriched) {
-      if (!matchPanelDateForRow(e.effectiveNgay, panel)) continue;
+    for (const e of entries) {
+      const rowA = readBaoCaoRowNgay(e.cells);
+      if (!matchPanelDateForRow(rowA, panel)) continue;
       rowsOnDate++;
-      const mcc = e.effectiveMcc.trim();
-      if (mcc && !mccOnDate.includes(mcc)) mccOnDate.push(mcc);
+      const rowB = readBaoCaoRowMcc(e.cells);
+      if (rowB && !mccOnDate.includes(rowB)) mccOnDate.push(rowB);
     }
     const panelMccRaw = slot.panelMcc;
     const mccHint =
@@ -504,28 +481,23 @@ export function buildFilterMismatchDiagnostic(
 }
 
 /**
- * Lọc tab BAO_CAO_TK: ngày panel ↔ cột A; tên MCC panel ↔ cột B (ô gộp → dùng giá trị khối).
+ * Lọc tab BAO_CAO_TK: ngày panel ↔ cột A; tên MCC panel ↔ cột B (từng dòng, không kế thừa).
  * MCC panel trống → mọi dòng có cùng ngày cột A.
  */
 export function filterBaoCaoSheetRowsBySlots(
   entries: BaoCaoTkSheetRow[],
   slots: BaoCaoFilterSlot[],
 ): BaoCaoTkFilteredRow[] {
-  const enriched = enrichBaoCaoTkRowsWithBlockHeaders(entries);
   const bySheetRow = new Map<number, BaoCaoTkFilteredRow>();
   for (const slot of slots) {
     const panel = normalizePanelDateKey(slot.panelNgay);
     if (!panel) continue;
-    for (const e of enriched) {
-      if (!matchPanelDateForRow(e.effectiveNgay, panel)) continue;
-      if (!matchMccForRow(e.effectiveMcc, slot.panelMcc)) continue;
-      bySheetRow.set(e.sheetRow1Based, {
-        sheetRow1Based: e.sheetRow1Based,
-        cells: e.cells,
-        panelNgay: panel,
-        effectiveNgay: e.effectiveNgay,
-        effectiveMcc: e.effectiveMcc,
-      });
+    for (const e of entries) {
+      const rowA = readBaoCaoRowNgay(e.cells);
+      const rowB = readBaoCaoRowMcc(e.cells);
+      if (!matchPanelDateForRow(rowA, panel)) continue;
+      if (!matchMccForRow(rowB, slot.panelMcc)) continue;
+      bySheetRow.set(e.sheetRow1Based, { ...e, panelNgay: panel });
     }
   }
   return [...bySheetRow.values()].sort((a, b) => a.sheetRow1Based - b.sheetRow1Based);

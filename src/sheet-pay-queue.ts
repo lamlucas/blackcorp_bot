@@ -281,8 +281,8 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
     const row = entry.cells;
     if (!forceResend && isBaoCaoRowNoteDone(row)) continue;
 
-    const rowNgay = entry.effectiveNgay;
-    const rowMcc = entry.effectiveMcc;
+    const rowNgay = String(row[BAO_CAO_COL.NGAY] ?? "").trim();
+    const rowMcc = String(row[BAO_CAO_COL.MCC] ?? "").trim();
     if (isRowExcludedByMcc(rowNgay, rowMcc, entry.panelNgay, opts.excludeMccs)) continue;
 
     const customerD = normalizeDealerNameKey(String(row[BAO_CAO_COL.TEN_KHACH] ?? ""));
