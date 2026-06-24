@@ -179,6 +179,27 @@ function mccIdsLooselyMatch(idA: string, idB: string): boolean {
   return pa[0] === pb[0] && pa[2] === pb[2];
 }
 
+/** Cùng hậu tố ngày (vd /23/6); cho phép lệch 1 ký tự phần mã (NV1 ↔ NVT). */
+function mccTailsLooselyMatch(tailA: string, tailB: string): boolean {
+  if (tailA === tailB) return true;
+  const da = tailA.match(/^(.+)\/(\d{1,2}\/\d{1,2})$/);
+  const db = tailB.match(/^(.+)\/(\d{1,2}\/\d{1,2})$/);
+  if (!da || !db || da[2] !== db[2]) return false;
+  const pa = da[1];
+  const pb = db[1];
+  if (pa === pb) return true;
+  if (Math.abs(pa.length - pb.length) > 1) return false;
+  let diff = 0;
+  const maxLen = Math.max(pa.length, pb.length);
+  for (let i = 0; i < maxLen; i++) {
+    const ca = pa[i] ?? "";
+    const cb = pb[i] ?? "";
+    if (ca !== cb) diff++;
+    if (diff > 1) return false;
+  }
+  return diff === 1;
+}
+
 /** Cột B khớp ô MCC panel (trùng, chứa, cùng mã, cùng hậu tố MCC, hoặc mã lỏng). */
 export function matchMccForRow(rowMcc: string, panelMcc: string): boolean {
   const b = normalizeMccKey(panelMcc);
@@ -189,7 +210,7 @@ export function matchMccForRow(rowMcc: string, panelMcc: string): boolean {
 
   const tailA = extractMccTailKey(a);
   const tailB = extractMccTailKey(b);
-  if (tailA && tailB && tailA === tailB) return true;
+  if (tailA && tailB && (tailA === tailB || mccTailsLooselyMatch(tailA, tailB))) return true;
 
   const idA = extractMccIdKey(a);
   const idB = extractMccIdKey(b);

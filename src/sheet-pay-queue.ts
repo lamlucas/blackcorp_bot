@@ -13,7 +13,7 @@ import {
 } from "./sheet-pay-status";
 import { appendSheetPayLog } from "./sheet-pay-log";
 import type { Env } from "./worker-lib";
-import { getAccessTokenFromEnv, getDebtMap } from "./worker-lib";
+import { getAccessTokenFromEnv, getCongNoFullMap, getDebtMap } from "./worker-lib";
 
 const META_PREFIX = "sheet_pay:meta:";
 const CHUNK_SIZE_DEFAULT = 3;
@@ -69,6 +69,7 @@ export type SheetPayQueueJob =
 
 type ChunkSheetCache = {
   debtMap: Map<string, string>;
+  congNoFullMap: Awaited<ReturnType<typeof getCongNoFullMap>>;
   filterRows: BaoCaoTkFilteredRow[];
 };
 
@@ -136,7 +137,21 @@ export async function startSheetPayRun(env: Env, opts: SheetPayStartOpts): Promi
   if (meta.filterMatchCount === 0) {
     await finishSheetPayRun(env, opts.runId);
     return;
-  } else if (meta.rowJobs.length === 0 && !opts.forceResend) {
+  }
+  if (meta.rowJobs.length === 0 && meta.unmappedCustomers.length > 0) {
+    await appendSheetPayLog(env, "warn", "Không gửi chi phí — thiếu map Chat ID", {
+      runId: opts.runId,
+      unmapped: meta.unmappedCustomers,
+      filterMatchCount: meta.filterMatchCount,
+    });
+  }
+  if (meta.incompleteRows.length > 0) {
+    await appendSheetPayLog(env, "warn", "Một số dòng thiếu trường bắt buộc", {
+      runId: opts.runId,
+      incompleteRows: meta.incompleteRows,
+    });
+  }
+  if (meta.rowJobs.length === 0 && !opts.forceResend) {
     await appendSheetPayRunWarning(
       env,
       opts.runId,
@@ -191,7 +206,7 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
     filterSlotsSignature,
     buildFilterMismatchDiagnostic,
   } = await import("./bao-cao-tk");
-  const { getCongNoColumnBForCustomerD, parseMoneyNumber } = await import("./format");
+  const { getCongNoOpeningColumnCForCustomerD, parseMoneyNumber } = await import("./format");
 
   let token: string;
   try {
@@ -207,10 +222,13 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
   const store = env.STORE!;
 
   let debtMap: Map<string, string>;
+  let congNoFullMap: Awaited<ReturnType<typeof getCongNoFullMap>>;
   try {
+    congNoFullMap = await getCongNoFullMap(token, debtSpreadsheetId, env.DEBT_TAB_NAME);
     debtMap = await getDebtMap(token, debtSpreadsheetId, env.DEBT_TAB_NAME);
   } catch {
     debtMap = new Map();
+    congNoFullMap = new Map();
   }
 
   const dealerMap = await getDealerChatMap(store);
@@ -254,8 +272,7 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
       const chatId = resolveChatIdForCustomerNameColumnD(customerD, dealerMap);
       if (chatId) {
         customerTargets.set(key, { customerD, chatId });
-        const bStr = getCongNoColumnBForCustomerD(debtMap, customerD);
-        bOldSnapshot[key] = bStr != null ? parseMoneyNumber(bStr) : 0;
+        bOldSnapshot[key] = getCongNoOpeningColumnCForCustomerD(congNoFullMap, customerD);
       }
     }
   }
@@ -408,10 +425,11 @@ async function loadChunkSheetCache(env: Env, meta: SheetPayRunMeta): Promise<Chu
     await import("./bao-cao-tk");
   const token = await getAccessTokenFromEnv(env);
   const debtSpreadsheetId = env.DEBT_SPREADSHEET_ID?.trim() || env.MAIN_SPREADSHEET_ID.trim();
+  const congNoFullMap = await getCongNoFullMap(token, debtSpreadsheetId, env.DEBT_TAB_NAME);
   const debtMap = await getDebtMap(token, debtSpreadsheetId, env.DEBT_TAB_NAME);
   const allEntries = await readBaoCaoTkSheetRows(token, debtSpreadsheetId, BAO_CAO_TK_TAB_NAME);
   const filterRows = filterBaoCaoSheetRowsBySlots(allEntries, meta.filterSlots);
-  return { debtMap, filterRows };
+  return { debtMap, congNoFullMap, filterRows };
 }
 
 export async function processSheetPayFooters(env: Env, runId: string): Promise<void> {
@@ -543,17 +561,18 @@ async function deliverSheetPayRowJob(
   const tongThuNum = parseMoneyNumber(tongThuDisplay);
   const bStr = getCongNoColumnBForCustomerD(debtMap, customerD);
   const bNum = bStr != null ? parseMoneyNumber(bStr) : 0;
-  const bOldForGroup = meta.bOldSnapshot[customerD.trim().toLowerCase()] ?? 0;
+  const openingC = meta.bOldSnapshot[customerD.trim().toLowerCase()] ?? 0;
 
   let congNoSauMcc: string;
   if (meta.forceResend && tongThuNum > 0) {
     const sumUpTo = sumPayableColumnIUpToRow(filterRows, customerD, sheetRow);
     congNoSauMcc = formatDebtDisplayForTelegram(
-      formatMoneyForThanhToanLine(Math.round((bOldForGroup + sumUpTo) * 100) / 100),
+      formatMoneyForThanhToanLine(Math.round((openingC + sumUpTo) * 100) / 100),
     );
-  } else if (bStr != null && tongThuNum > 0) {
+  } else if (tongThuNum > 0) {
+    const base = bStr != null && bNum > 0 ? bNum : openingC;
     congNoSauMcc = formatDebtDisplayForTelegram(
-      formatMoneyForThanhToanLine(Math.round((bNum + tongThuNum) * 100) / 100),
+      formatMoneyForThanhToanLine(Math.round((base + tongThuNum) * 100) / 100),
     );
   } else {
     congNoSauMcc = congNoColumnBForDealerName(debtMap, customerD);
@@ -605,7 +624,7 @@ async function deliverSheetPayRowJob(
     const { upsertCongNoDebt } = await import("./cong-no-sheet");
     const maDlKey = resolveCongNoMaDlKeyByCustomerName(debtMap, customerD) ?? customerD.trim();
     if (maDlKey) {
-      const current = bStr != null ? parseMoneyNumber(bStr) : 0;
+      const current = bStr != null ? parseMoneyNumber(bStr) : openingC;
       const newTotal = Math.round((current + tongThuNum) * 100) / 100;
       const newDebtDisplay = formatMoneyForThanhToanLine(newTotal);
       await upsertCongNoDebt(
@@ -640,6 +659,7 @@ async function deliverSheetPayFooter(
     formatTongTienCanThanhToanMessage,
     formatMoneyForThanhToanLine,
     getCongNoColumnBForCustomerD,
+    getCongNoOpeningColumnCForCustomerD,
     parseMoneyNumber,
     congNoDebtMatchesTongTien,
   } = await import("./format");
@@ -647,38 +667,55 @@ async function deliverSheetPayFooter(
 
   const token = await getAccessTokenFromEnv(env);
   const debtSpreadsheetId = env.DEBT_SPREADSHEET_ID?.trim() || env.MAIN_SPREADSHEET_ID.trim();
+  const congNoFullMap = await getCongNoFullMap(token, debtSpreadsheetId, env.DEBT_TAB_NAME);
   const debtMap = await getDebtMap(token, debtSpreadsheetId, env.DEBT_TAB_NAME);
   const allEntries = await readBaoCaoTkSheetRows(token, debtSpreadsheetId, BAO_CAO_TK_TAB_NAME);
   const filterRows = filterBaoCaoSheetRowsBySlots(allEntries, meta.filterSlots);
 
   const sumI = sumTongThuColumnIForCustomerFilterRows(filterRows, target.customerD);
+  const openingC =
+    meta.bOldSnapshot[target.customerD.trim().toLowerCase()] ??
+    getCongNoOpeningColumnCForCustomerD(congNoFullMap, target.customerD);
   const bStr = getCongNoColumnBForCustomerD(debtMap, target.customerD);
   const bCurrent = bStr != null ? parseMoneyNumber(bStr) : 0;
 
   let bOldDisplay: number;
   let total: number;
 
-  if (meta.forceResend) {
-    total = bCurrent;
-    bOldDisplay = Math.max(0, Math.round((bCurrent - sumI) * 100) / 100);
-  } else {
-    if (!allBaoCaoFilterRowsDoneForCustomer(filterRows, target.customerD)) {
-      return;
-    }
-    total = bCurrent;
-    bOldDisplay = Math.max(0, Math.round((bCurrent - sumI) * 100) / 100);
-    if (
-      sumI > 0 &&
-      !congNoDebtMatchesTongTien(bOldDisplay, sumI, bCurrent)
-    ) {
-      await appendSheetPayRunError(env, meta.runId, `Tên khách: ${target.customerD} lệch chi tiêu`);
-      meta.footerSentKeys.push(footerRunKey);
-      await saveSheetPayMeta(env, meta);
-      return;
-    }
+  if (!meta.forceResend && !allBaoCaoFilterRowsDoneForCustomer(filterRows, target.customerD)) {
+    await appendSheetPayRunWarning(
+      env,
+      meta.runId,
+      `Tên khách: ${target.customerD} — chưa gửi hết dòng chi phí (chờ cột J Done).`,
+    );
+    return;
+  }
+
+  const expectedTotal = Math.round((openingC + sumI) * 100) / 100;
+  bOldDisplay = openingC;
+  total = bCurrent > 0 ? bCurrent : expectedTotal;
+
+  if (sumI > 0 && bCurrent > 0 && !congNoDebtMatchesTongTien(openingC, sumI, bCurrent)) {
+    const errMsg = `Tên khách: ${target.customerD} lệch nợ (C=${openingC}, ΣI=${sumI}, B=${bCurrent})`;
+    await appendSheetPayRunError(env, meta.runId, errMsg);
+    await appendSheetPayLog(env, "error", errMsg, {
+      runId: meta.runId,
+      customerD: target.customerD,
+      openingC,
+      sumI,
+      bCurrent,
+    });
+    meta.footerSentKeys.push(footerRunKey);
+    await saveSheetPayMeta(env, meta);
+    return;
   }
 
   if (total <= 0) {
+    await appendSheetPayRunWarning(
+      env,
+      meta.runId,
+      `Tên khách: ${target.customerD} — bỏ TỔNG TIỀN (nợ đầu ngày C=${openingC} + TỔNG THU=${sumI} = 0).`,
+    );
     meta.footerSentKeys.push(footerRunKey);
     await saveSheetPayMeta(env, meta);
     return;

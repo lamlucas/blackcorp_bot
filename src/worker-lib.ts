@@ -191,15 +191,35 @@ export async function getDebtMap(
   spreadsheetId: string,
   tabName: string
 ): Promise<Map<string, string>> {
+  const full = await getCongNoFullMap(accessToken, spreadsheetId, tabName);
+  const map = new Map<string, string>();
+  for (const [name, row] of full) {
+    map.set(name, row.b);
+  }
+  return map;
+}
+
+export type CongNoRowCells = { maDl: string; b: string; c: string };
+
+/** Hàng 2+ cột A–C tab CONG_NO: A = mã/tên, B = nợ hiện tại, C = nợ đầu ngày (trống = 0). */
+export async function getCongNoFullMap(
+  accessToken: string,
+  spreadsheetId: string,
+  tabName: string,
+): Promise<Map<string, CongNoRowCells>> {
   const q = quoteSheet(tabName);
-  const ranges = [`${q}!A2:B`];
+  const ranges = [`${q}!A2:C`];
   const parts = await batchGetValues(accessToken, spreadsheetId, ranges);
   const rows = parts[0] ?? [];
-  const map = new Map<string, string>();
+  const map = new Map<string, CongNoRowCells>();
   for (const row of rows) {
-    const name = String(row[0] ?? "").trim();
-    const debt = String(row[1] ?? "").trim();
-    if (name) map.set(name, debt);
+    const maDl = String(row[0] ?? "").trim();
+    if (!maDl) continue;
+    map.set(maDl, {
+      maDl,
+      b: String(row[1] ?? "").trim(),
+      c: String(row[2] ?? "").trim(),
+    });
   }
   return map;
 }

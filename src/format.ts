@@ -126,7 +126,7 @@ export function formatManualMessage(input: {
 
 /**
  * Giá trị cột B CONG_NO khi cột A khớp tên cột D (trim; thử không phân biệt hoa thường).
- * `null` = không có dòng khớp hoặc B rỗng → không dùng trong tổng TỔNG THU.
+ * `null` = không có dòng khớp; chuỗi rỗng = có dòng nhưng B trống (tính 0).
  */
 export function getCongNoColumnBForCustomerD(
   debtMap: Map<string, string>,
@@ -135,17 +135,50 @@ export function getCongNoColumnBForCustomerD(
   const d = customerColD.trim();
   if (!d) return null;
   if (debtMap.has(d)) {
-    const b = String(debtMap.get(d) ?? "").trim();
-    return b ? b : null;
+    return String(debtMap.get(d) ?? "").trim();
   }
   const low = d.toLowerCase();
   for (const [a, b] of debtMap) {
     const at = String(a ?? "").trim();
     if (at.toLowerCase() !== low) continue;
-    const bt = String(b ?? "").trim();
-    return bt ? bt : null;
+    return String(b ?? "").trim();
   }
   return null;
+}
+
+/** Có dòng CONG_NO (cột A) khớp tên cột D — không yêu cầu B có giá trị. */
+export function hasCongNoRowForCustomerD(
+  debtMap: Map<string, string>,
+  customerColD: string,
+): boolean {
+  return getCongNoColumnBForCustomerD(debtMap, customerColD) !== null;
+}
+
+export type CongNoRowCells = { maDl: string; b: string; c: string };
+
+/** Tìm dòng CONG_NO theo tên cột D (không phân biệt hoa thường). */
+export function findCongNoRowForCustomerD(
+  fullMap: Map<string, CongNoRowCells>,
+  customerColD: string,
+): CongNoRowCells | null {
+  const d = customerColD.trim();
+  if (!d) return null;
+  if (fullMap.has(d)) return fullMap.get(d)!;
+  const low = d.toLowerCase();
+  for (const [a, row] of fullMap) {
+    if (a.toLowerCase() === low) return row;
+  }
+  return null;
+}
+
+/** Nợ đầu ngày cột C — không có dòng hoặc C trống → 0. */
+export function getCongNoOpeningColumnCForCustomerD(
+  fullMap: Map<string, CongNoRowCells>,
+  customerColD: string,
+): number {
+  const row = findCongNoRowForCustomerD(fullMap, customerColD);
+  if (!row) return 0;
+  return parseMoneyNumber(row.c);
 }
 
 /** Khóa cột A CONG_NO khớp tên cột D (trim, không phân biệt hoa thường) — dùng khi ghi/xóa dòng. */
@@ -193,7 +226,7 @@ export function congNoColumnBForDealerName(
   dealerNameColD: string
 ): string {
   const v = getCongNoColumnBForCustomerD(debtMap, dealerNameColD);
-  if (v == null) return "0";
+  if (v == null || !v) return "0";
   return formatDebtDisplayForTelegram(v);
 }
 
@@ -206,7 +239,7 @@ export function sumEligibleThucThuIForCustomer(
   customerColD: string,
   debtMap: Map<string, string>
 ): number {
-  if (getCongNoColumnBForCustomerD(debtMap, customerColD) == null) return 0;
+  if (!hasCongNoRowForCustomerD(debtMap, customerColD)) return 0;
   const dNorm = customerColD.trim().toLowerCase();
   if (!dNorm) return 0;
   let sum = 0;
@@ -335,7 +368,12 @@ export function computeCongNoAfterThuChi(
 ): CongNoAfterThuChiAction | null {
   if (debtColumnB == null) return null;
   const b = parseMoneyNumber(debtColumnB);
-  if (!Number.isFinite(b) || b <= 0) return null;
+  if (!Number.isFinite(b) || b < 0) return null;
+  if (b === 0) {
+    const diff = Math.abs(paymentAmount);
+    if (diff < threshold) return { action: "deleteRow" };
+    return null;
+  }
   const remaining = Math.round((b - paymentAmount) * 100) / 100;
   const diff = Math.abs(paymentAmount - b);
   if (diff < threshold || remaining < threshold) return { action: "deleteRow" };
@@ -344,7 +382,7 @@ export function computeCongNoAfterThuChi(
 
 /**
  * TỔNG THU = số (cột B CONG_NO theo A = D) + Σ cột I các tab TINH_TIEN (cùng điều kiện khớp CONG_NO).
- * Không khớp CONG_NO hoặc B rỗng → 0 (không cộng phần I).
+ * Không khớp CONG_NO → 0 (không cộng phần I). B rỗng → 0.
  */
 export function computeTongThuForPaymentRow(opts: {
   debtMap: Map<string, string>;
