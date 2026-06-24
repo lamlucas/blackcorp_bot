@@ -45,7 +45,7 @@
   "sheetPayButton": "Gửi",
   "sheetPayConfirmTitle": "Xác nhận gửi lại chi phí",
   "sheetPayConfirmYes": "Xác nhận",
-  "sheetPayConfirmNo": "Hủy",
+  "sheetPayConfirmNo": "Không",
   "sheetPayConfirmQuestion": "Đã gửi chi phí — có cần gửi lại không?",
   "cocHeading": "Tiền cọc",
   "cocHint": "Tab COC: dòng có sẵn chỉ xem — bấm Sửa mới chỉnh; + Dòng thêm mới (Lưu ghi dòng trống kế tiếp). Bot ghi COC khi Note là Thẳng / Tạ An / MMO.",

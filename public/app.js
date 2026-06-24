@@ -1335,24 +1335,36 @@ function hideSheetPayConfirmModal() {
   sheetPayResendPayload = null;
 }
 
-function showSheetPayResendConfirm(doneRows, payload) {
+function showSheetPayResendConfirm(doneRows, payload, confirmOpts = {}) {
   const modal = document.getElementById("sheetPayConfirmModal");
   const body = document.getElementById("sheetPayConfirmBody");
+  const noBtn = document.getElementById("sheetPayConfirmNo");
   if (!modal || !body) return;
-  sheetPayResendPayload = payload;
-  body.innerHTML = doneRows
-    .map((row) => {
-      const ngay = escapeAttr(String(row.ngay ?? "—"));
-      const mcc = escapeAttr(String(row.mcc ?? "—"));
-      const ten = escapeAttr(String(row.tenKhach ?? "—"));
-      return `<article class="sheet-pay-confirm-item">
+  const confirmMode = confirmOpts.confirmMode === "mixed" ? "mixed" : "all_done";
+  const pendingCount = Number(confirmOpts.pendingCount) || 0;
+  sheetPayResendPayload = { ...payload, confirmMode };
+  const intro =
+    confirmMode === "mixed"
+      ? `<p class="hint sheet-pay-confirm-intro">${pendingCount} dòng chưa gửi sẽ được gửi nếu chọn <strong>Không</strong>. Chọn <strong>Xác nhận</strong> để gửi lại cả dòng đã Done.</p>`
+      : `<p class="hint sheet-pay-confirm-intro">Tất cả dòng lọc đã Done. Chọn <strong>Xác nhận</strong> để gửi lại; <strong>Không</strong> để hủy.</p>`;
+  body.innerHTML =
+    intro +
+    doneRows
+      .map((row) => {
+        const ngay = escapeAttr(String(row.ngay ?? "—"));
+        const mcc = escapeAttr(String(row.mcc ?? "—"));
+        const ten = escapeAttr(String(row.tenKhach ?? "—"));
+        return `<article class="sheet-pay-confirm-item">
         <p><strong>Ngày:</strong> ${ngay}</p>
         <p><strong>Mcc:</strong> ${mcc}</p>
         <p><strong>Tên khách:</strong> ${ten}</p>
-        <p class="confirm-question">Đã gửi chi phí — có cần gửi lại không?</p>
       </article>`;
-    })
-    .join("");
+      })
+      .join("");
+  if (noBtn) {
+    noBtn.textContent =
+      confirmMode === "mixed" ? "Không — chỉ gửi dòng chưa gửi" : "Không — hủy";
+  }
   modal.hidden = false;
 }
 
@@ -1362,7 +1374,13 @@ document.getElementById("sheetPayConfirmYes")?.addEventListener("click", () => {
   if (payload) void submitSheetPayment(true, payload);
 });
 
-document.getElementById("sheetPayConfirmNo")?.addEventListener("click", hideSheetPayConfirmModal);
+document.getElementById("sheetPayConfirmNo")?.addEventListener("click", () => {
+  const payload = sheetPayResendPayload;
+  hideSheetPayConfirmModal();
+  if (payload?.confirmMode === "mixed") {
+    void submitSheetPayment(false, payload);
+  }
+});
 document.getElementById("sheetPayConfirmBackdrop")?.addEventListener("click", hideSheetPayConfirmModal);
 
 async function submitSheetPayment(forceResend, payloadOverride) {
@@ -1403,7 +1421,10 @@ async function submitSheetPayment(forceResend, payloadOverride) {
     return;
   }
   if (data.needsConfirm && Array.isArray(data.doneRows) && data.doneRows.length > 0) {
-    showSheetPayResendConfirm(data.doneRows, { dates, mccs, excludeMccs });
+    showSheetPayResendConfirm(data.doneRows, { dates, mccs, excludeMccs }, {
+      confirmMode: data.confirmMode,
+      pendingCount: data.pendingCount,
+    });
     return;
   }
   const extra =
@@ -1457,10 +1478,21 @@ async function pollSheetPayStatus(runId, msgEl) {
       return;
     }
     if (warnings.length > 0) {
+      const sent = run.rowsSent ?? 0;
+      const sentHint = sent > 0 ? `Đã gửi ${sent} dòng chi phí. ` : "Không gửi dòng chi phí nào. ";
       show(
         msgEl,
-        `Hoàn tất${footers.length ? ` — TỔNG TIỀN + QR: ${footers.join(", ")}` : ""}. Cảnh báo: ${warnings.join(" · ")}`,
-        false,
+        `${sentHint}${footers.length ? `TỔNG TIỀN + QR: ${footers.join(", ")}. ` : ""}Cảnh báo: ${warnings.join(" · ")}`,
+        sent === 0 && footers.length === 0,
+      );
+      return;
+    }
+    const sent = run.rowsSent ?? 0;
+    if (sent === 0 && footers.length === 0) {
+      show(
+        msgEl,
+        "Hoàn tất — không gửi dòng chi phí / TỔNG TIỀN (thiếu map Chat ID, tổng ≤ 0 hoặc chưa đủ điều kiện).",
+        true,
       );
       return;
     }

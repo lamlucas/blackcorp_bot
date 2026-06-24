@@ -1,5 +1,13 @@
 const KV_KEY = "dealer_chat_map";
 
+/** Chuẩn hóa tên đại lý / cột D — bỏ NBSP, gộp khoảng trắng (Sheet hay dính ký tự ẩn). */
+export function normalizeDealerNameKey(name: string): string {
+  return String(name ?? "")
+    .replace(/\u00a0/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 export async function getDealerChatMap(kv: KVNamespace | undefined): Promise<Record<string, string>> {
   if (!kv) return {};
   const raw = await kv.get(KV_KEY);
@@ -43,13 +51,13 @@ export function resolveChatIdForCustomerNameColumnD(
   customerColD: string,
   map: Record<string, string>
 ): string | null {
-  const d = customerColD.trim();
+  const d = normalizeDealerNameKey(customerColD);
   if (!d) return null;
   const exact = resolveChatId(d, null, map);
   if (exact) return exact;
   const low = d.toLowerCase();
   for (const [k, v] of Object.entries(map)) {
-    const kt = String(k ?? "").trim();
+    const kt = normalizeDealerNameKey(k);
     if (!kt || String(v ?? "").trim() === "") continue;
     if (kt.toLowerCase() === low) return String(v).trim();
   }

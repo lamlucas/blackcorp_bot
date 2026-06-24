@@ -2,6 +2,7 @@
 import {
   getDealerChatMap,
   resolveChatIdForCustomerNameColumnD,
+  normalizeDealerNameKey,
 } from "./dealer-map";
 import {
   appendSheetPayRunError,
@@ -44,6 +45,10 @@ export type SheetPayRunMeta = {
   telegramGapMs: number;
   footerSentKeys: string[];
   rowsSent: number;
+  /** Đại lý có dòng chưa gửi nhưng thiếu map Chat ID */
+  unmappedCustomers: string[];
+  /** Dòng bỏ qua vì thiếu cột bắt buộc */
+  incompleteRows: { customerD: string; sheetRow: number; missing: string[] }[];
 };
 
 export type SheetPayStartOpts = {
@@ -108,10 +113,24 @@ async function sendPaymentQrPhoto(
   await pause();
 }
 
-/** Chuß║⌐n bß╗ï l├┤ gß╗¡i ΓåÆ l╞░u KV ΓåÆ enqueue l├┤ ─æß║ºu (Queue) hoß║╖c chß║íy inline. */
+/** Cron: ghi KV trạng thái → enqueue hoặc gửi inline. */
 export async function startSheetPayRun(env: Env, opts: SheetPayStartOpts): Promise<void> {
   const meta = await prepareSheetPayMeta(env, opts);
   if (!meta) return;
+  for (const name of meta.unmappedCustomers) {
+    await appendSheetPayRunWarning(
+      env,
+      opts.runId,
+      `Tên khách: ${name} — chưa map Chat ID (bỏ qua dòng chưa gửi).`,
+    );
+  }
+  for (const row of meta.incompleteRows) {
+    await appendSheetPayRunWarning(
+      env,
+      opts.runId,
+      `Dòng ${row.sheetRow} (${row.customerD}): thiếu ${row.missing.join(", ")}.`,
+    );
+  }
   if (meta.rowJobs.length === 0 && meta.footerTargets.length === 0) {
     await finishSheetPayRun(env, opts.runId);
     return;
@@ -196,9 +215,11 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
   const customerTargets = new Map<string, SheetPayFooterTarget>();
   const bOldSnapshot: Record<string, number> = {};
   const rowJobs: SheetPayRowJob[] = [];
+  const unmappedPending = new Set<string>();
+  const incompleteRows: SheetPayRunMeta["incompleteRows"] = [];
 
   for (const entry of filterRows) {
-    const customerD = String(entry.cells[BAO_CAO_COL.TEN_KHACH] ?? "").trim();
+    const customerD = normalizeDealerNameKey(String(entry.cells[BAO_CAO_COL.TEN_KHACH] ?? ""));
     if (!customerD) continue;
     const key = customerD.toLowerCase();
     if (!customerTargets.has(key)) {
@@ -219,12 +240,22 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
     const rowMcc = String(row[BAO_CAO_COL.MCC] ?? "");
     if (isRowExcludedByMcc(rowNgay, rowMcc, entry.panelNgay, opts.excludeMccs)) continue;
 
-    const customerD = String(row[BAO_CAO_COL.TEN_KHACH] ?? "").trim();
+    const customerD = normalizeDealerNameKey(String(row[BAO_CAO_COL.TEN_KHACH] ?? ""));
     const chatId = resolveChatIdForCustomerNameColumnD(customerD, dealerMap);
     const missingLabels = getBaoCaoRowPaymentMissingLabels(row);
 
-    if (!chatId) continue;
-    if (missingLabels.length > 0) continue;
+    if (!chatId) {
+      if (customerD) unmappedPending.add(customerD);
+      continue;
+    }
+    if (missingLabels.length > 0) {
+      incompleteRows.push({
+        customerD,
+        sheetRow: entry.sheetRow1Based,
+        missing: missingLabels,
+      });
+      continue;
+    }
 
     rowJobs.push({
       sheetRow1Based: entry.sheetRow1Based,
@@ -259,6 +290,8 @@ async function prepareSheetPayMeta(env: Env, opts: SheetPayStartOpts): Promise<S
     telegramGapMs: 400,
     footerSentKeys: [],
     rowsSent: 0,
+    unmappedCustomers: [...unmappedPending],
+    incompleteRows,
   };
 
   await saveSheetPayMeta(env, meta);
@@ -576,6 +609,7 @@ async function deliverSheetPayFooter(
     filterBaoCaoSheetRowsBySlots,
     buildTongTienBreakdownForCustomer,
     sumTongThuColumnIForCustomerFilterRows,
+    allBaoCaoFilterRowsDoneForCustomer,
   } = await import("./bao-cao-tk");
   const {
     formatTongTienCanThanhToanMessage,
@@ -592,8 +626,6 @@ async function deliverSheetPayFooter(
   const allEntries = await readBaoCaoTkSheetRows(token, debtSpreadsheetId, BAO_CAO_TK_TAB_NAME);
   const filterRows = filterBaoCaoSheetRowsBySlots(allEntries, meta.filterSlots);
 
-  const custKey = target.customerD.trim().toLowerCase();
-  const bOldStart = meta.bOldSnapshot[custKey] ?? 0;
   const sumI = sumTongThuColumnIForCustomerFilterRows(filterRows, target.customerD);
   const bStr = getCongNoColumnBForCustomerD(debtMap, target.customerD);
   const bCurrent = bStr != null ? parseMoneyNumber(bStr) : 0;
@@ -605,10 +637,16 @@ async function deliverSheetPayFooter(
     total = bCurrent;
     bOldDisplay = Math.max(0, Math.round((bCurrent - sumI) * 100) / 100);
   } else {
-    bOldDisplay = bOldStart;
-    total = Math.round((bOldStart + sumI) * 100) / 100;
-    if (!congNoDebtMatchesTongTien(bOldStart, sumI, bCurrent)) {
-      await appendSheetPayRunError(env, meta.runId, `T├¬n kh├ích: ${target.customerD} lß╗çch chi ti├¬u`);
+    if (!allBaoCaoFilterRowsDoneForCustomer(filterRows, target.customerD)) {
+      return;
+    }
+    total = bCurrent;
+    bOldDisplay = Math.max(0, Math.round((bCurrent - sumI) * 100) / 100);
+    if (
+      sumI > 0 &&
+      !congNoDebtMatchesTongTien(bOldDisplay, sumI, bCurrent)
+    ) {
+      await appendSheetPayRunError(env, meta.runId, `Tên khách: ${target.customerD} lệch chi tiêu`);
       meta.footerSentKeys.push(footerRunKey);
       await saveSheetPayMeta(env, meta);
       return;

@@ -8,6 +8,7 @@ import {
 import {
   getDealerChatMap,
   setDealerChatMap,
+  normalizeDealerNameKey,
   resolveChatIdForCustomerNameColumnD,
 } from "./dealer-map";
 import { runDebtNotifyProducer, type DebtNotifyJob } from "./debt-queue";
@@ -210,7 +211,7 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
       const raw = body.map ?? {};
       const cleaned: Record<string, string> = {};
       for (const [k, v] of Object.entries(raw)) {
-        const name = String(k ?? "").trim();
+        const name = normalizeDealerNameKey(k);
         const chat = String(v ?? "").trim();
         if (!name) continue;
         cleaned[name] = chat;
@@ -497,14 +498,19 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
         });
         const doneRows = listDoneFilterRows(eligible);
         const pendingRows = eligible.filter((e) => !isBaoCaoRowNoteDone(e.cells));
-        /* Chỉ hỏi xác nhận khi mọi dòng lọc đã Done — còn dòng chưa gửi thì gửi bình thường (bỏ qua Done). */
-        if (doneRows.length > 0 && pendingRows.length === 0) {
+        if (doneRows.length > 0) {
+          const confirmMode = pendingRows.length > 0 ? "mixed" : "all_done";
           return json(
             {
               ok: true,
               needsConfirm: true,
+              confirmMode,
               doneRows,
-              message: "Một số dòng đã gửi chi phí (Done). Xác nhận nếu muốn gửi lại.",
+              pendingCount: pendingRows.length,
+              message:
+                confirmMode === "mixed"
+                  ? `${doneRows.length} dòng đã Done, ${pendingRows.length} dòng chưa gửi. Xác nhận = gửi lại tất cả; Không = chỉ gửi dòng chưa gửi.`
+                  : "Một số dòng đã gửi chi phí (Done). Xác nhận nếu muốn gửi lại.",
             },
             200,
             request,
