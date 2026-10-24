@@ -124,21 +124,40 @@ export async function deliverDebtJobsInline(
   }
 }
 
-/** Một tin Telegram (+ QR + ghim). */
+function debtNotifySentKey(job: DebtNotifyJob): string {
+  return `debt_notify:sent:${job.runId}:${job.chatId}`;
+}
+
+/** Một tin Telegram (+ QR + ghim). Ghim/QR lỗi không làm gửi lại tin chữ. */
 export async function deliverDebtNotifyJob(env: Env, job: DebtNotifyJob): Promise<void> {
   const { formatDebtOnlyNotify } = await import("./format");
   const { sendHtmlMessage, pinMessage, sendPhotoUrl } = await import("./telegram");
 
   const { chatId, maDl, noCuDisplay } = job;
+  const sentKey = debtNotifySentKey(job);
+  if (env.STORE && (await env.STORE.get(sentKey))) return;
+
   const htmlDebt = formatDebtOnlyNotify({
     maDl,
     noCu: noCuDisplay,
   });
 
   const msg = await sendHtmlMessage(env.TELEGRAM_BOT_TOKEN, chatId, htmlDebt);
-  await pinMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg.message_id);
+  if (env.STORE) {
+    await env.STORE.put(sentKey, new Date().toISOString(), { expirationTtl: 60 * 60 * 36 });
+  }
+
+  try {
+    await pinMessage(env.TELEGRAM_BOT_TOKEN, chatId, msg.message_id);
+  } catch {
+    /* ghim lỗi — tin chữ đã gửi, không retry */
+  }
   if (env.PAYMENT_IMAGE_URL_1?.trim()) {
-    await sendPhotoUrl(env.TELEGRAM_BOT_TOKEN, chatId, env.PAYMENT_IMAGE_URL_1);
+    try {
+      await sendPhotoUrl(env.TELEGRAM_BOT_TOKEN, chatId, env.PAYMENT_IMAGE_URL_1);
+    } catch {
+      /* QR lỗi — tin chữ đã gửi, không retry */
+    }
   }
 }
 
