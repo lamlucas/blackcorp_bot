@@ -369,6 +369,44 @@ async function handleApi(request: Request, env: Env, ctx: ExecutionContext): Pro
       }
     }
 
+    /** Dùng token đã có trên Cloudflare — không cần file token trên máy. */
+    if (path === "/api/repair-thu-chi-webhook" && request.method === "POST") {
+      if (!(await verifySessionCookie(request, env.SESSION_SECRET))) {
+        return json({ ok: false, error: "Chưa đăng nhập" }, 401, request);
+      }
+      const { baocaoBotToken, thuChiBotToken } = await import("./thu-chi-hub");
+      const { deleteWebhook, setTelegramWebhook, getWebhookInfo } = await import("./telegram");
+      const { telegramWebhookSecret } = await import("./telegram-webhook-route");
+      const baocaoTok = baocaoBotToken(env);
+      const thuChiTok = thuChiBotToken(env);
+      if (!thuChiTok) {
+        return json(
+          { ok: false, error: "Cloudflare chưa có TELEGRAM_THU_CHI_BOT_TOKEN." },
+          503,
+          request,
+        );
+      }
+      const origin = new URL(request.url).origin;
+      const webhookUrl = `${origin}/api/telegram-thu-chi-webhook`;
+      try {
+        if (baocaoTok) await deleteWebhook(baocaoTok, true);
+        await setTelegramWebhook(thuChiTok, webhookUrl, telegramWebhookSecret(env));
+        const info = await getWebhookInfo(thuChiTok);
+        return json(
+          {
+            ok: true,
+            webhookUrl: info.url || webhookUrl,
+            message: "Đã trỏ webhook Thu Chi về Worker này. Gửi thử Thu: trong nhóm.",
+          },
+          200,
+          request,
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return json({ ok: false, error: msg }, 502, request);
+      }
+    }
+
     if (path === "/api/telegram-bot-status" && request.method === "GET") {
       if (!(await verifySessionCookie(request, env.SESSION_SECRET))) {
         return json({ ok: false, error: "Chưa đăng nhập" }, 401, request);

@@ -1562,6 +1562,23 @@ async function pollSheetPayStatus(runId, msgEl) {
   );
 }
 
+document.getElementById("repairThuChiWebhook")?.addEventListener("click", async () => {
+  const msg = document.getElementById("dealerMsg");
+  const url = apiUrl("/api/repair-thu-chi-webhook");
+  if (!url) {
+    show(msg, "Chỉ chạy khi mở site trên Worker.", true);
+    return;
+  }
+  show(msg, "Đang trỏ webhook Thu Chi…", false);
+  const res = await fetch(url, { method: "POST", credentials: "include" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    show(msg, data.error || "Không sửa được webhook", true);
+    return;
+  }
+  show(msg, data.message || data.webhookUrl || "Đã sửa webhook.", false);
+});
+
 document.getElementById("dealerFetchGroupChats").addEventListener("click", async () => {
   const msg = document.getElementById("chatFilterMsg");
   const results = document.getElementById("dealerChatResults");
